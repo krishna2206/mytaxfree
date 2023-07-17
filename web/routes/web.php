@@ -194,3 +194,12 @@ Route::post('/api/barcode', function(Request $request) {
     return $response;
 });
 
+Route::post('/api/set-operation-status', function (Request $request) {
+    $data = $request->json()->all();
+    $barCode = $data['Codebarre'];
+    $status = $data['Status'];
+
+    $response = CurlCustom::set_operation_status($barCode, $status);
+    return $response;
+});
+

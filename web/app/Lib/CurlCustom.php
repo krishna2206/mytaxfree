@@ -58,14 +58,13 @@ class CurlCustom
 
         curl_close($curl);
 
-        // Traitez la réponse ici
         return [
             "response_data" => $response,
             "status_code" => curl_getinfo($curl, CURLINFO_HTTP_CODE)
         ];
     }
 
-    public static function set_operation_status(?string $status = "OK"): array
+    public static function set_operation_status($barCode, ?string $status = "OK"): array
     {
         $curl = curl_init();
         curl_setopt_array($curl, array(
@@ -77,6 +76,11 @@ class CurlCustom
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode(
+                [
+                    "Codebarre" => $barCode
+                ]
+            ),
             CURLOPT_HTTPHEADER => array(
                 'X-External-Agent-Code: MyTaxFree',
                 'Authorization: Bearer 4$hopify$'
@@ -86,7 +90,7 @@ class CurlCustom
         curl_close($curl);
 
         return [
-            // "response_data" => json_decode($response, true),
+            "response_data" => $response,
             "status_code" => curl_getinfo($curl, CURLINFO_HTTP_CODE)
         ];
     }

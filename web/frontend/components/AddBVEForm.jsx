@@ -75,7 +75,13 @@ export default function AddBVEForm() {
             PassportValid: formatDate(selectedDate),
         });
     };
-    const [dateNaissance, setDateNaissance] = useState(formatDate(new Date("Sat Jan 01 2000 03:00:00 GMT+0300 (heure d'été d'Europe de l'Est)")));
+    const [dateNaissance, setDateNaissance] = useState(
+        formatDate(
+            new Date(
+                "Sat Jan 01 2000 03:00:00 GMT+0300 (heure d'été d'Europe de l'Est)"
+            )
+        )
+    );
     const handleDateNaissanceChange = (selectedDate) => {
         console.log(selectedDate);
         setDateNaissance(formatDate(selectedDate));
@@ -255,8 +261,39 @@ export default function AddBVEForm() {
         const statusCode = data.status_code;
 
         if (statusCode === 200) {
-            setSuccessData("Code barre obtenu : " + responseData);
-            setIsSuccessModalOpen(true);
+            // Envoyer le code barre à la douane pour finaliser l'ajout du BVE
+            const secondResponse = await fetch("/api/set-operation-status", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    Codebarre: responseData,
+                    Status: "OK",
+                }),
+            });
+
+            const secondData = await secondResponse.json();
+            const secondResponseData = secondData.response_data;
+            const secondStatusCode = secondData.status_code;
+
+            if (secondStatusCode === 200) {
+                setSuccessData(
+                    "Code barre obtenu : " +
+                        responseData +
+                        ".<br />Le BVE a été ajouté avec succès.<br />" +
+                        secondResponseData
+                );
+                setIsSuccessModalOpen(true);
+            } else {
+                if (secondResponseData) {
+                    setErrorData(secondResponseData);
+                } else {
+                    setErrorData(secondData);
+                }
+
+                setIsErrorModalOpen(true);
+            }
         } else {
             if (responseData) {
                 setErrorData(responseData);
@@ -452,7 +489,9 @@ export default function AddBVEForm() {
             >
                 <Modal.Section>
                     <TextContainer>
-                        <p dangerouslySetInnerHTML={{ __html: successData }}></p>
+                        <p
+                            dangerouslySetInnerHTML={{ __html: successData }}
+                        ></p>
                     </TextContainer>
                 </Modal.Section>
             </Modal>
