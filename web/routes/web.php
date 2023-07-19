@@ -34,6 +34,7 @@ use Shopify\Webhooks\Topics;
 |
 */
 
+// Shopify-related routes
 Route::fallback(function (Request $request) {
     if (Context::$IS_EMBEDDED_APP &&  $request->query("embedded", false) === "1") {
         if (env('APP_ENV') === 'production') {
@@ -145,20 +146,56 @@ Route::post('/api/webhooks', function (Request $request) {
     }
 });
 
-Route::get('/api/countries', function() {
+Route::get('/api/bve/show', function (Request $request) {
+    $barcode = $request->input("barcode");
+    if ($barcode) {
+        $bve_data = CurlCustom::get_bve($barcode, "SH12345678")['response_data'];
+        dd($bve_data);
+    }
+    $bves = CurlCustom::get_BVEs("SH12345678")["response_data"]["BVE"] ?? [];
+    return Response()->json($bves);
+})->middleware('shopify.auth');
+
+Route::get('/api/bve/show/{codebarre}', function (Request $request, $codebarre) {
+    $bve_data = CurlCustom::get_bve($codebarre, "SH12345678")['response_data'];
+    return Response()->json($bve_data);
+})->middleware('shopify.auth');
+
+Route::get('/api/orders', function (Request $request) {
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    $client = new Rest($session->getShop(), $session->getAccessToken());
+    $result = $client->get('orders');
+
+    return response($result->getDecodedBody());
+})->middleware('shopify.auth');
+
+Route::get('/api/orders/{id}', function (Request $request, $id) {
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    $client = new Rest($session->getShop(), $session->getAccessToken());
+    $result = $client->get("orders/$id");
+
+    return response($result->getDecodedBody());
+})->middleware('shopify.auth');
+
+// App specific routes
+Route::get('/api/countries', function () {
     $url = "https://www.mytaxfree.fr/API/_STPays/2023";
     $response = CurlCustom::retrieve_data($url);
     return $response["response_data"];
 });
 
-Route::get('/api/refund-modes', function() {
+Route::get('/api/refund-modes', function () {
     $seller_id = "SH12345678";
     $url = "https://www.mytaxfree.fr/API/_STMag/" . $seller_id;
     $response = CurlCustom::retrieve_data($url);
     return $response["response_data"];
 });
 
-Route::post('/api/barcode', function(Request $request) {
+Route::post('/api/barcode', function (Request $request) {
     $seller_id = "SH12345678";
     $data = $request->json()->all();
 
@@ -202,4 +239,3 @@ Route::post('/api/set-operation-status', function (Request $request) {
     $response = CurlCustom::set_operation_status($barCode, $status);
     return $response;
 });
-

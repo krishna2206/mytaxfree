@@ -12,6 +12,7 @@ import {
     TextStyle,
     Thumbnail,
 } from "@shopify/polaris";
+import { EditMajor } from "@shopify/polaris-icons";
 
 import { useAppQuery, useAuthenticatedFetch } from "../hooks";
 import { useEffect, useState, useCallback } from "react";
@@ -27,7 +28,7 @@ function formatDate(date) {
     return formattedDate;
 }
 
-export default function AddBVEForm({ selectedOrder, orderDetail }) {
+export default function EditBVEForm({ BVEInfo }) {
     const fetch = useAuthenticatedFetch();
 
     // Remplissage du select de la liste des pays
@@ -45,7 +46,12 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
             label: country.NomPays,
             value: country.IDPays,
         }));
+        // setSelectedCountry(BVEInfo.IDPays);
     }
+
+    useEffect(() => {
+        setSelectedCountry(BVEInfo.IDPays);
+    }, []);
 
     // Remplissage du select de la liste des modes de remboursement
     const { data: refundModes, status: refundModesStatus } = useAppQuery({
@@ -62,16 +68,21 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
             label: refundMode.Libelle,
             value: refundMode.Mode,
         }));
+        // setSelectedRefundMode(BVEInfo.IDMode);
     }
 
+    useEffect(() => {
+        setSelectedRefundMode(BVEInfo.IDMode);
+    }, []);
+
     // Gestions des champs du formulaire
-    const [dateAchat, setDateAchat] = useState(formatDate(new Date()));
+    const [dateAchat, setDateAchat] = useState(BVEInfo.AchatLe);
     const handleDateAchatChange = (selectedDate) => {
         setDateAchat(formatDate(selectedDate));
         setFormState({ ...formState, AchatLe: formatDate(selectedDate) });
     };
     const [dateValiditePasseport, setDateValiditePasseport] = useState(
-        formatDate(new Date())
+        BVEInfo.PassportValid
     );
     const handleDateValiditePasseportChange = (selectedDate) => {
         setDateValiditePasseport(formatDate(selectedDate));
@@ -81,11 +92,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
         });
     };
     const [dateNaissance, setDateNaissance] = useState(
-        formatDate(
-            new Date(
-                "Sat Jan 01 2000 03:00:00 GMT+0300 (heure d'été d'Europe de l'Est)"
-            )
-        )
+        BVEInfo.DateNaissance
     );
     const handleDateNaissanceChange = (selectedDate) => {
         console.log(selectedDate);
@@ -95,7 +102,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
             DateN: formatDate(selectedDate),
         });
     };
-    const [dateDepart, setDateDepart] = useState(formatDate(new Date()));
+    const [dateDepart, setDateDepart] = useState(BVEInfo.DepartLe);
     const handleDateDepartChange = (selectedDate) => {
         setDateDepart(formatDate(selectedDate));
         setFormState({
@@ -104,44 +111,55 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
         });
     };
 
-    const [selected, setSelected] = useState("ReglCarte");
+    let paymentMethod = ""
+    if (BVEInfo.ReglCarte === true) {
+        paymentMethod = "ReglCarte";
+    } else if (BVEInfo.ReglCheq === true) {
+        paymentMethod = "ReglCheq";
+    } else if (BVEInfo.ReglCash === true) {
+        paymentMethod = "ReglCash";
+    } else if (BVEInfo.ReglAutre === true) {
+        paymentMethod = "ReglAutre";
+    }
+
+    const [selected, setSelected] = useState(paymentMethod);
     const handleChoiceListChange = useCallback((value) => {
         setSelected(value);
     }, []);
 
     const [formState, setFormState] = useState({
-        Facture: "",
-        exCodeBarre: "",
-        AchatLe: dateAchat,
-        Nom: orderDetail ? orderDetail.customer ? orderDetail.customer.first_name : "" : "",
-        Prenom: orderDetail ? orderDetail.customer ? orderDetail.customer.last_name : "" : "",
-        Addresse: orderDetail ? (orderDetail.customer ? (orderDetail.customer.default_address ? orderDetail.customer.default_address.name : "" ) : "") : "",
-        IDPays: selectedCountry,
-        Passeport: "",
-        PassportValid: dateValiditePasseport,
-        Nationalite: selectedCountry,
-        DateN: dateNaissance,
-        Messagerie: "",
-        ReglCarte: selected.includes("ReglCarte") ? "1" : "0",
-        ReglCheq: selected.includes("ReglCheq") ? "1" : "0",
-        ReglCash: selected.includes("ReglCash") ? "1" : "0",
-        ReglAutre: selected.includes("ReglAutre") ? "1" : "0",
-        IDMode: selectedRefundMode,
-        Compte: "",
-        Beneficiaire: "",
-        Mobile: "",
-        VolLe: dateDepart,
-        Articles: orderDetail ? orderDetail.line_items.map(
+        Facture: BVEInfo.Facture,
+        exCodeBarre: BVEInfo.CodeBarre,
+        AchatLe: BVEInfo.AchatLe,
+        Nom: BVEInfo.Nom,
+        Prenom: BVEInfo.Prenom,
+        Addresse: BVEInfo.Addresse === "0" ? "" : BVEInfo.Addresse,
+        IDPays: BVEInfo.IDPays,
+        Passeport: BVEInfo.Passeport,
+        PassportValid: BVEInfo.PassportValid,
+        Nationalite: BVEInfo.IDPays,
+        DateN: BVEInfo.DateNaissance,
+        Messagerie: BVEInfo.Messagerie,
+        ReglCarte: BVEInfo.ReglCarte === true ? "1" : "0",
+        ReglCheq: BVEInfo.ReglCheq === true ? "1" : "0",
+        ReglCash: BVEInfo.ReglCash === true ? "1" : "0",
+        ReglAutre: BVEInfo.ReglAutre === true ? "1" : "0",
+        IDMode: BVEInfo.IDMode,
+        Compte: BVEInfo.Compte === "0" ? "" : BVEInfo.Compte,
+        Beneficiaire: BVEInfo.Beneficiaire === "0" ? "" : BVEInfo.Beneficiaire,
+        Mobile: BVEInfo.Mobile === "0" ? "" : BVEInfo.Mobile,
+        VolLe: BVEInfo.DepartLe,
+        Articles: BVEInfo ? BVEInfo.Articles.map(
             (item) => {
                 return {
-                    Code: item.id,
-                    Description: item.name,
-                    Identification: "",
-                    PU: parseFloat(item.price),
-                    PTTC: (parseFloat(item.price) * 1.2) * item.quantity,
-                    QTT: item.quantity,
-                    TTVA: 20,
-                    PTVA: (parseFloat(item.price) * 0.2) * item.quantity,
+                    Code: item.Code,
+                    Description: item.Description,
+                    Identification: item.Identification,
+                    PU: item.PU,
+                    PTTC: item.PTTC,
+                    QTT: item.QTT,
+                    TTVA: item.TTVA,
+                    PTVA: item.PTVA,
                 };
             }) : [],
     });
@@ -183,75 +201,61 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
     }, [refundModesStatus]);
 
     // Gestion des champs textes
-    const [Facture, setFacture] = useState("");
+    const [Facture, setFacture] = useState(BVEInfo.Facture);
     const handleFactureChange = (value) => {
         setFacture(value);
         setFormState({ ...formState, Facture: value });
     };
 
-    const [exCodeBarre, setExCodeBarre] = useState("");
+    const [exCodeBarre, setExCodeBarre] = useState(BVEInfo.CodeBarre);
     const handleExCodeBarreChange = (value) => {
         setExCodeBarre(value);
         setFormState({ ...formState, exCodeBarre: value });
     };
 
-    const [Nom, setNom] = useState(
-        orderDetail
-            ? orderDetail.customer
-                ? orderDetail.customer.first_name
-                : ""
-            : ""
-    );
+    const [Nom, setNom] = useState(BVEInfo.Nom);
     const handleNomChange = (value) => {
         setNom(value);
         setFormState({ ...formState, Nom: value });
     };
 
-    const [Prenom, setPrenom] = useState(
-        orderDetail
-            ? orderDetail.customer
-                ? orderDetail.customer.last_name
-                : ""
-            : ""
-    );
+    const [Prenom, setPrenom] = useState(BVEInfo.Prenom);
     const handlePrenomChange = (value) => {
         setPrenom(value);
         setFormState({ ...formState, Prenom: value });
     };
 
-    const [Addresse, setAddresse] = useState(
-        orderDetail ? (orderDetail.customer ? (orderDetail.customer.default_address ? orderDetail.customer.default_address.name : "" ) : "") : ""
-    );
+    const [Addresse, setAddresse] = useState(BVEInfo.Addresse === "0" ? "" : BVEInfo.Addresse);
     const handleAddresseChange = (value) => {
         setAddresse(value);
         setFormState({ ...formState, Addresse: value });
     };
 
-    const [Passeport, setPasseport] = useState("");
+    const [Passeport, setPasseport] = useState(BVEInfo.Passeport);
     const handlePasseportChange = (value) => {
         setPasseport(value);
         setFormState({ ...formState, Passeport: value });
     };
 
-    const [Messagerie, setMessagerie] = useState("");
+    const [Messagerie, setMessagerie] = useState(BVEInfo.Messagerie);
     const handleMessagerieChange = (value) => {
         setMessagerie(value);
         setFormState({ ...formState, Messagerie: value });
     };
 
-    const [Compte, setCompte] = useState("");
+    const [Compte, setCompte] = useState(BVEInfo.Compte === "0" ? "" : BVEInfo.Compte);
     const handleCompteChange = (value) => {
         setCompte(value);
         setFormState({ ...formState, Compte: value });
     };
 
-    const [Beneficiaire, setBeneficiaire] = useState("");
+    const [Beneficiaire, setBeneficiaire] = useState(BVEInfo.Beneficiaire === "0" ? "" : BVEInfo.Beneficiaire);
     const handleBeneficiaireChange = (value) => {
         setBeneficiaire(value);
         setFormState({ ...formState, Beneficiaire: value });
     };
 
-    const [Mobile, setMobile] = useState("");
+    const [Mobile, setMobile] = useState(BVEInfo.Mobile === "0" ? "" : BVEInfo.Mobile);
     const handleMobileChange = (value) => {
         setMobile(value);
         setFormState({ ...formState, Mobile: value });
@@ -341,7 +345,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
     const handleSubmit = async () => {
         const fields = [
             "Facture",
-            // "exCodeBarre",
+            "exCodeBarre",
             "Nom",
             "Prenom",
             "Addresse",
@@ -366,8 +370,8 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
 
         // Si le formulaire ne contient pas d'erreurs, on le soumet
         if (Object.keys(newErrors).length === 0) {
-            // console.log(JSON.stringify(formState, null, 4));
-            submitForm();
+            console.log(JSON.stringify(formState, null, 4));
+            // submitForm();
         }
     };
 
@@ -514,13 +518,13 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
                     <ResourceList
                         resourceName={{ singular: "article", plural: "articles" }}
                         items={
-                            orderDetail.line_items.map(
+                            BVEInfo.Articles.map(
                                 (item) => {
                                     return {
-                                        id: item.id,
-                                        name: item.name,
-                                        price: item.price,
-                                        quantity: item.quantity,
+                                        id: item.Code,
+                                        name: item.Description,
+                                        price: item.PU,
+                                        quantity: item.QTT,
                                     };
                                 }
                             )
@@ -550,8 +554,13 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
                         }}
                     />
 
-                    <Button submit primary={true}>
-                        Valider
+                    <Button
+                        submit
+                        icon={EditMajor}
+                        primary={true}
+                    >
+                        &nbsp;
+                        Modifier
                     </Button>
                 </VerticalStack>
             </Form>
@@ -560,7 +569,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
             <Modal
                 open={isSuccessModalOpen}
                 onClose={() => setIsSuccessModalOpen(false)}
-                title="Ajout BVE réussi"
+                title="Modification BVE réussi"
             >
                 <Modal.Section>
                     <TextContainer>
