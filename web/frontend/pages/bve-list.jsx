@@ -1,7 +1,17 @@
-import { Card, Page, Layout, TextContainer, Text, Grid } from "@shopify/polaris";
+import {
+    Card,
+    Page,
+    Layout,
+    TextContainer,
+    Text,
+    Grid,
+    Link,
+} from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { useTranslation } from "react-i18next";
 import { StoryCard } from "../components/StoryCard";
+import BveDetail from "../components/BveDetail";
+import { useState } from "react";
 
 export default function BveList() {
     const { t } = useTranslation();
@@ -21,4 +31,6 @@ export default function BveList() {
             </Grid>
         </Page>
     );
+
+
 }

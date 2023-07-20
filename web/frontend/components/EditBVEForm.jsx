@@ -91,9 +91,7 @@ export default function EditBVEForm({ BVEInfo }) {
             PassportValid: formatDate(selectedDate),
         });
     };
-    const [dateNaissance, setDateNaissance] = useState(
-        BVEInfo.DateNaissance
-    );
+    const [dateNaissance, setDateNaissance] = useState(BVEInfo.DateNaissance);
     const handleDateNaissanceChange = (selectedDate) => {
         console.log(selectedDate);
         setDateNaissance(formatDate(selectedDate));
@@ -111,7 +109,7 @@ export default function EditBVEForm({ BVEInfo }) {
         });
     };
 
-    let paymentMethod = ""
+    let paymentMethod = "";
     if (BVEInfo.ReglCarte === true) {
         paymentMethod = "ReglCarte";
     } else if (BVEInfo.ReglCheq === true) {
@@ -149,19 +147,20 @@ export default function EditBVEForm({ BVEInfo }) {
         Beneficiaire: BVEInfo.Beneficiaire === "0" ? "" : BVEInfo.Beneficiaire,
         Mobile: BVEInfo.Mobile === "0" ? "" : BVEInfo.Mobile,
         VolLe: BVEInfo.DepartLe,
-        Articles: BVEInfo ? BVEInfo.Articles.map(
-            (item) => {
-                return {
-                    Code: item.Code,
-                    Description: item.Description,
-                    Identification: item.Identification,
-                    PU: item.PU,
-                    PTTC: item.PTTC,
-                    QTT: item.QTT,
-                    TTVA: item.TTVA,
-                    PTVA: item.PTVA,
-                };
-            }) : [],
+        Articles: BVEInfo
+            ? BVEInfo.Articles.map((item) => {
+                  return {
+                      Code: item.Code,
+                      Description: item.Description,
+                      Identification: item.Identification,
+                      PU: item.PU,
+                      PTTC: item.PTTC,
+                      QTT: item.QTT,
+                      TTVA: item.TTVA,
+                      PTVA: item.PTVA,
+                  };
+              })
+            : [],
     });
 
     useEffect(() => {
@@ -225,7 +224,9 @@ export default function EditBVEForm({ BVEInfo }) {
         setFormState({ ...formState, Prenom: value });
     };
 
-    const [Addresse, setAddresse] = useState(BVEInfo.Addresse === "0" ? "" : BVEInfo.Addresse);
+    const [Addresse, setAddresse] = useState(
+        BVEInfo.Addresse === "0" ? "" : BVEInfo.Addresse
+    );
     const handleAddresseChange = (value) => {
         setAddresse(value);
         setFormState({ ...formState, Addresse: value });
@@ -243,19 +244,25 @@ export default function EditBVEForm({ BVEInfo }) {
         setFormState({ ...formState, Messagerie: value });
     };
 
-    const [Compte, setCompte] = useState(BVEInfo.Compte === "0" ? "" : BVEInfo.Compte);
+    const [Compte, setCompte] = useState(
+        BVEInfo.Compte === "0" ? "" : BVEInfo.Compte
+    );
     const handleCompteChange = (value) => {
         setCompte(value);
         setFormState({ ...formState, Compte: value });
     };
 
-    const [Beneficiaire, setBeneficiaire] = useState(BVEInfo.Beneficiaire === "0" ? "" : BVEInfo.Beneficiaire);
+    const [Beneficiaire, setBeneficiaire] = useState(
+        BVEInfo.Beneficiaire === "0" ? "" : BVEInfo.Beneficiaire
+    );
     const handleBeneficiaireChange = (value) => {
         setBeneficiaire(value);
         setFormState({ ...formState, Beneficiaire: value });
     };
 
-    const [Mobile, setMobile] = useState(BVEInfo.Mobile === "0" ? "" : BVEInfo.Mobile);
+    const [Mobile, setMobile] = useState(
+        BVEInfo.Mobile === "0" ? "" : BVEInfo.Mobile
+    );
     const handleMobileChange = (value) => {
         setMobile(value);
         setFormState({ ...formState, Mobile: value });
@@ -275,6 +282,9 @@ export default function EditBVEForm({ BVEInfo }) {
         Mobile: "",
     });
 
+    // State du bouton pour le chargement
+    const [isLoading, setIsLoading] = useState(false);
+
     // Modals après soumission du formulaire
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState(null);
@@ -284,6 +294,8 @@ export default function EditBVEForm({ BVEInfo }) {
 
     // Fonction de soumission du formulaire
     const submitForm = async () => {
+        setIsLoading(true);
+
         const response = await fetch("/api/barcode", {
             method: "POST",
             headers: {
@@ -315,9 +327,9 @@ export default function EditBVEForm({ BVEInfo }) {
 
             if (secondStatusCode === 200) {
                 setSuccessData(
-                    "Code barre obtenu : " +
+                    "Nouveau code barre obtenu : " +
                         responseData +
-                        ".<br />Le BVE a été ajouté avec succès.<br />" +
+                        ".<br />Le BVE a été mise à jour avec succès.<br />" +
                         secondResponseData
                 );
                 setIsSuccessModalOpen(true);
@@ -339,6 +351,8 @@ export default function EditBVEForm({ BVEInfo }) {
 
             setIsErrorModalOpen(true);
         }
+
+        setIsLoading(false);
     };
 
     // Gestion de l'appui sur le bouton de soumission du formulaire
@@ -371,7 +385,7 @@ export default function EditBVEForm({ BVEInfo }) {
         // Si le formulaire ne contient pas d'erreurs, on le soumet
         if (Object.keys(newErrors).length === 0) {
             console.log(JSON.stringify(formState, null, 4));
-            // submitForm();
+            submitForm();
         }
     };
 
@@ -516,25 +530,26 @@ export default function EditBVEForm({ BVEInfo }) {
                         Liste des articles
                     </Text>
                     <ResourceList
-                        resourceName={{ singular: "article", plural: "articles" }}
-                        items={
-                            BVEInfo.Articles.map(
-                                (item) => {
-                                    return {
-                                        id: item.Code,
-                                        name: item.Description,
-                                        price: item.PU,
-                                        quantity: item.QTT,
-                                    };
-                                }
-                            )
-                        }
+                        resourceName={{
+                            singular: "article",
+                            plural: "articles",
+                        }}
+                        items={BVEInfo.Articles.map((item) => {
+                            return {
+                                id: item.Code,
+                                name: item.Description,
+                                price: item.PU,
+                                quantity: item.QTT,
+                            };
+                        })}
                         renderItem={(item) => {
                             const { id, name, price, quantity } = item;
-                            const media = <Thumbnail
-                                source="https://cdn3d.iconscout.com/3d/premium/thumb/product-5806313-4863042.png"
-                                alt="Black choker necklace"
-                            />;
+                            const media = (
+                                <Thumbnail
+                                    source="https://cdn3d.iconscout.com/3d/premium/thumb/product-5806313-4863042.png"
+                                    alt="Black choker necklace"
+                                />
+                            );
                             return (
                                 <ResourceList.Item
                                     id={id}
@@ -558,9 +573,9 @@ export default function EditBVEForm({ BVEInfo }) {
                         submit
                         icon={EditMajor}
                         primary={true}
+                        loading={isLoading}
                     >
-                        &nbsp;
-                        Modifier
+                        &nbsp; Modifier
                     </Button>
                 </VerticalStack>
             </Form>
