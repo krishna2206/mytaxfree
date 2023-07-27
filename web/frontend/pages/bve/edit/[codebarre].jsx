@@ -18,7 +18,7 @@ export default function BVEPage() {
     const app = useContext(Context);
     const handleBVEListClick = () => {
         const redirect = Redirect.create(app);
-        redirect.dispatch(Redirect.Action.APP, `/bve-list`);
+        redirect.dispatch(Redirect.Action.APP, `/bve/liste`);
     };
 
     return (

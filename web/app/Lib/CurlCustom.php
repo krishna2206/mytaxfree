@@ -150,4 +150,38 @@ class CurlCustom
             "status_code" => curl_getinfo($curl, CURLINFO_HTTP_CODE)
         ];
     }
+
+    public static function scan_passport($filename, $seller_id) {
+        $curl = curl_init();
+        $payload = json_encode(["DocJpg" => $filename]);
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => "https://www.mytaxfree.fr/API/_STSPass/" . $seller_id,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'GET',
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_HTTPHEADER => array(
+                'X-External-Agent-Code: MyTaxFree',
+                'Authorization: Bearer 4$hopify$'
+            ),
+        ));
+        $response = curl_exec($curl);
+        curl_close($curl);
+
+        if (curl_getinfo($curl, CURLINFO_HTTP_CODE) == 400) {
+            return [
+                "response_data" => $response,
+                "status_code" => curl_getinfo($curl, CURLINFO_HTTP_CODE)
+            ];
+        }
+
+        return [
+            "response_data" => json_decode($response, true),
+            "status_code" => curl_getinfo($curl, CURLINFO_HTTP_CODE)
+        ];
+    }
 }

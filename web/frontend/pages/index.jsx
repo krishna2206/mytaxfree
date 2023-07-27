@@ -1,105 +1,47 @@
-import React, { useState, useCallback, useEffect, useContext } from "react";
-import {
-    VerticalStack,
-    Text,
-    SkeletonBodyText,
-    Select,
-} from "@shopify/polaris";
-import { ListMajor } from "@shopify/polaris-icons";
-
-import AddBVEForm from "../components/AddBVEForm";
-
-import { useAppQuery, useAuthenticatedFetch } from "../hooks";
 import { Context, TitleBar } from "@shopify/app-bridge-react";
 import { Redirect } from "@shopify/app-bridge/actions";
+import { Button, VerticalStack } from "@shopify/polaris";
+import { AddMajor, ListMajor, ExitMajor } from "@shopify/polaris-icons";
+import React, { useContext } from "react";
+import SpacingBackground from "../components/SpacingBackground";
 
-export default function HomePage() {
-    const fetch = useAuthenticatedFetch();
+export default function MainMenu() {
+    const app = useContext(Context);
 
-    const [selectedOrder, setSelectedOrder] = useState(null);
-    const handleOrderChange = useCallback((value) => {
-        console.log(value);
-        setSelectedOrder(value);
-        setOrderDetail(null); // reset order detail
-        console.log(selectedOrder);
-    }, []);
-
-    const { data: orders, status: ordersStatus } = useAppQuery({
-        url: "/api/orders",
-    });
-    let ordersOptions = [];
-    if (ordersStatus === "success") {
-        ordersOptions = orders.orders.map((order) => {
-            const date = new Date(order.created_at);
-            const formattedDate = `${("0" + date.getDate()).slice(-2)}/${(
-                "0" +
-                (date.getMonth() + 1)
-            ).slice(-2)}/${date.getFullYear()} à ${(
-                "0" + date.getHours()
-            ).slice(-2)}:${("0" + date.getMinutes()).slice(-2)}`;
-
-            return {
-                label: `Commande N°${order.id} du ${formattedDate}`,
-                value: order.id,
-            };
-        });
-    }
-
-    const [orderDetail, setOrderDetail] = useState(null);
-    useEffect(() => {
-        if (selectedOrder) {
-            const fetchOrderDetail = async () => {
-                const response = await fetch(`/api/orders/${selectedOrder}`);
-                let orderDetail = await response.json();
-                orderDetail = orderDetail.order;
-                setOrderDetail(orderDetail);
-            };
-            fetchOrderDetail();
-        }
-    }, [selectedOrder]);
-
-    const app = useContext(Context)
-    const handleBVEListClick = () => {
+    const handleBveCreationMenuClick = () => {
         const redirect = Redirect.create(app);
-        redirect.dispatch(Redirect.Action.APP, `/bve-list`);
+        redirect.dispatch(Redirect.Action.APP, `/bve/create`);
+    };
+
+    const handleBveListClick = () => {
+        const redirect = Redirect.create(app);
+        redirect.dispatch(Redirect.Action.APP, `/bve/list`);
     };
 
     return (
         <>
-            <TitleBar
-                title="Création d'un BVE"
-                primaryAction={
-                    {
-                        icon: ListMajor,
-                        content: 'Liste des BVE',
-                        onAction: () => handleBVEListClick(),
-                    }
-                }
-            />
-            <div style={{ padding: "20px" }}>
-                <VerticalStack gap="4">
-                    <Text variant="headingXl" as="h4">
-                        Choisir la commande
-                    </Text>
-
-                    <Select
-                        label="Commandes"
-                        options={ordersOptions}
-                        onChange={handleOrderChange}
-                        value={selectedOrder}
-                    />
-
-                    {selectedOrder && !orderDetail && (
-                        <SkeletonBodyText lines={5} />
-                    )}
-                    {selectedOrder && orderDetail && (
-                        <AddBVEForm
-                            selectedOrder={selectedOrder}
-                            orderDetail={orderDetail}
-                        />
-                    )}
+            <TitleBar title="Menu détaxe" />
+            <SpacingBackground>
+                <VerticalStack gap="5">
+                    <Button
+                        icon={AddMajor}
+                        primary
+                        onClick={handleBveCreationMenuClick}
+                    >
+                        &nbsp; Nouvelle détaxe
+                    </Button>
+                    <Button
+                        icon={ListMajor}
+                        primary
+                        onClick={handleBveListClick}
+                    >
+                        &nbsp; Dernière détaxes
+                    </Button>
+                    {/* <Button icon={ExitMajor}>
+                        &nbsp; Fermer le programme de la détaxe
+                    </Button> */}
                 </VerticalStack>
-            </div>
+            </SpacingBackground>
         </>
     );
 }

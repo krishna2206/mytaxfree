@@ -58,7 +58,6 @@ export default function BveDetail({ code_barre_transmis }) {
         }
         return "";
     };
-    / const codebarre = "30009999999900100984"; /;
     const {
         data: bve,
         isLoading: isloading_bve,

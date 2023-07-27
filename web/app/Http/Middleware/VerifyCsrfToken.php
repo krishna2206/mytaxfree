@@ -12,8 +12,10 @@ class VerifyCsrfToken extends Middleware
      * @var array
      */
     protected $except = [
+        'api/bve/show',
         'api/barcode',
         'api/set-operation-status',
+        'api/passport/scan',
         'api/graphql',
         'api/webhooks',
     ];

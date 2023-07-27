@@ -27,7 +27,7 @@ function formatDate(date) {
     return formattedDate;
 }
 
-export default function AddBVEForm({ selectedOrder, orderDetail }) {
+export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     const fetch = useAuthenticatedFetch();
 
     // Remplissage du select de la liste des pays
@@ -81,7 +81,9 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
         });
     };
     const [dateNaissance, setDateNaissance] = useState(
-        formatDate(
+        passport
+        ? passport.DateNaissance
+        : formatDate(
             new Date(
                 "Sat Jan 01 2000 03:00:00 GMT+0300 (heure d'été d'Europe de l'Est)"
             )
@@ -113,14 +115,14 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
         Facture: "",
         exCodeBarre: "",
         AchatLe: dateAchat,
-        Nom: orderDetail ? orderDetail.customer ? orderDetail.customer.first_name : "" : "",
-        Prenom: orderDetail ? orderDetail.customer ? orderDetail.customer.last_name : "" : "",
-        Addresse: orderDetail ? (orderDetail.customer ? (orderDetail.customer.default_address ? orderDetail.customer.default_address.name : "" ) : "") : "",
-        IDPays: selectedCountry,
-        Passeport: "",
-        PassportValid: dateValiditePasseport,
-        Nationalite: selectedCountry,
-        DateN: dateNaissance,
+        Nom: passport ? passport.Nom : (orderDetail ? orderDetail.customer ? orderDetail.customer.first_name : "" : ""),
+        Prenom: passport ? passport.Prenom : (orderDetail ? orderDetail.customer ? orderDetail.customer.last_name : "" : ""),
+        Addresse: passport ? (passport.Adresse ? passport.Adresse : "") : (orderDetail ? (orderDetail.customer ? (orderDetail.customer.default_address ? orderDetail.customer.default_address.name : "" ) : "") : ""),
+        IDPays: passport ? passport.Pays : selectedCountry,
+        Passeport: passport ? passport.Passeport : "",
+        PassportValid: passport ? passport.ValiditePasseport : dateValiditePasseport,
+        Nationalite: passport ? passport.Nationalite : selectedCountry,
+        DateN: passport ? passport.DateNaissance : dateNaissance,
         Messagerie: "",
         ReglCarte: selected.includes("ReglCarte") ? "1" : "0",
         ReglCheq: selected.includes("ReglCheq") ? "1" : "0",
@@ -196,11 +198,11 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
     };
 
     const [Nom, setNom] = useState(
-        orderDetail
+        passport ? passport.Nom : (orderDetail
             ? orderDetail.customer
                 ? orderDetail.customer.first_name
                 : ""
-            : ""
+            : "")
     );
     const handleNomChange = (value) => {
         setNom(value);
@@ -208,11 +210,11 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
     };
 
     const [Prenom, setPrenom] = useState(
-        orderDetail
+        passport ? passport.Prenom : (orderDetail
             ? orderDetail.customer
                 ? orderDetail.customer.last_name
                 : ""
-            : ""
+            : "")
     );
     const handlePrenomChange = (value) => {
         setPrenom(value);
@@ -220,14 +222,14 @@ export default function AddBVEForm({ selectedOrder, orderDetail }) {
     };
 
     const [Addresse, setAddresse] = useState(
-        orderDetail ? (orderDetail.customer ? (orderDetail.customer.default_address ? orderDetail.customer.default_address.name : "" ) : "") : ""
+        passport ? (passport.Adresse ? passport.Adresse : "") : (orderDetail ? (orderDetail.customer ? (orderDetail.customer.default_address ? orderDetail.customer.default_address.name : "" ) : "") : "")
     );
     const handleAddresseChange = (value) => {
         setAddresse(value);
         setFormState({ ...formState, Addresse: value });
     };
 
-    const [Passeport, setPasseport] = useState("");
+    const [Passeport, setPasseport] = useState(passport ? passport.Passeport : "");
     const handlePasseportChange = (value) => {
         setPasseport(value);
         setFormState({ ...formState, Passeport: value });

@@ -5,9 +5,11 @@ use App\Lib\AuthRedirection;
 use App\Lib\CurlCustom;
 use App\Lib\EnsureBilling;
 use App\Lib\ProductCreator;
+use App\Lib\SFTPClient;
 use App\Models\Session;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Shopify\Auth\OAuth;
@@ -146,16 +148,6 @@ Route::post('/api/webhooks', function (Request $request) {
     }
 });
 
-Route::get('/api/bve/show', function (Request $request) {
-    $barcode = $request->input("barcode");
-    if ($barcode) {
-        $bve_data = CurlCustom::get_bve($barcode, "SH12345678")['response_data'];
-        dd($bve_data);
-    }
-    $bves = CurlCustom::get_BVEs("SH12345678")["response_data"]["BVE"] ?? [];
-    return Response()->json($bves);
-})->middleware('shopify.auth');
-
 Route::get('/api/bve/show/{codebarre}', function (Request $request, $codebarre) {
     $bve_data = CurlCustom::get_bve($codebarre, "SH12345678")['response_data'];
     return Response()->json($bve_data);
@@ -189,43 +181,55 @@ Route::get('/api/countries', function () {
 });
 
 Route::get('/api/refund-modes', function () {
-    $seller_id = "SH12345678";
+    $seller_id = "SH12345678"; // TODO : To be removed
+
     $url = "https://www.mytaxfree.fr/API/_STMag/" . $seller_id;
     $response = CurlCustom::retrieve_data($url);
     return $response["response_data"];
 });
 
+Route::get('/api/bve/show', function (Request $request) {
+    $barcode = $request->input("barcode");
+    if ($barcode) {
+        $bve_data = CurlCustom::get_bve($barcode, "SH12345678")['response_data'];
+        dd($bve_data);
+    }
+    $bves = CurlCustom::get_BVEs("SH12345678")["response_data"]["BVE"] ?? [];
+    return Response()->json($bves);
+})->middleware('shopify.auth');
+
 Route::post('/api/barcode', function (Request $request) {
-    $seller_id = "SH12345678";
+    $seller_id = "SH12345678"; // TODO : To be removed
+
     $data = $request->json()->all();
 
     // Statique juste pour test
-    $data['MTTC'] = 200;
-    $data['MTVA'] = 33.33;
-    $data['MHT'] = 166.67;
+    // $data['MTTC'] = 200;
+    // $data['MTVA'] = 33.33;
+    // $data['MHT'] = 166.67;
 
-    $data['Articles'] = [
-        [
-            "Code" => "1",
-            "Description" => "Montre",
-            "Identification" => "NS 123456",
-            "PU" => 100,
-            "PTTC" => 100,
-            "QTT" => 1,
-            "TTVA" => 20,
-            "PTVA" => 16.65
-        ],
-        [
-            "Code" => "2",
-            "Description" => "Bague",
-            "Identification" => "",
-            "PU" => 100,
-            "PTTC" => 100,
-            "QTT" => 1,
-            "TTVA" => 20,
-            "PTVA" => 16.65
-        ]
-    ];
+    // $data['Articles'] = [
+    //     [
+    //         "Code" => "1",
+    //         "Description" => "Montre",
+    //         "Identification" => "NS 123456",
+    //         "PU" => 100,
+    //         "PTTC" => 100,
+    //         "QTT" => 1,
+    //         "TTVA" => 20,
+    //         "PTVA" => 16.65
+    //     ],
+    //     [
+    //         "Code" => "2",
+    //         "Description" => "Bague",
+    //         "Identification" => "",
+    //         "PU" => 100,
+    //         "PTTC" => 100,
+    //         "QTT" => 1,
+    //         "TTVA" => 20,
+    //         "PTVA" => 16.65
+    //     ]
+    // ];
 
     $response = CurlCustom::generate_bar_code($data, $seller_id);
     return $response;
@@ -239,3 +243,40 @@ Route::post('/api/set-operation-status', function (Request $request) {
     $response = CurlCustom::set_operation_status($barCode, $status);
     return $response;
 });
+
+Route::post('/api/passport/scan', function (Request $request) {
+    if (!$request->hasFile('file')) {
+        return response()->json(['upload_file_not_found'], 400);
+    }
+
+    $file = $request->file('file');
+    if (!$file->isValid()) {
+        return response()->json(['invalid_file_upload'], 400);
+    }
+
+    $seller_id = "SH12345678"; // TODO : To be removed
+
+    $date = date('YmdHisv');
+    $extension = '.' . $file->getClientOriginalExtension();
+    $filename = $seller_id . '-' . $date . $extension;
+
+    $path = public_path() . '/uploads/passports/';
+    $file->move($path, $filename);
+
+    $localFile = $path . $filename;
+    $remoteFile = '/' . $filename;
+
+    $client = new SFTPClient('mytaxfree.fr', 22, 'Shopify', 'am6yR8C5fhM2G5');
+    $client->uploadFile($localFile, $remoteFile);
+
+    $fileNameWithoutExt = pathinfo($filename, PATHINFO_FILENAME);
+
+    $response = CurlCustom::scan_passport($fileNameWithoutExt, $seller_id);
+
+    return response()->json($response);
+});
+
+// Static files serving
+Route::get('/detaxe/{path?}', function($path = ""){
+    return File::get(public_path(). '/detaxe/index.html');
+})->where('path', '.*');
