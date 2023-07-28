@@ -12,6 +12,7 @@ import {
     TextStyle,
     Thumbnail,
 } from "@shopify/polaris";
+import { SendMajor } from "@shopify/polaris-icons";
 
 import { useAppQuery, useAuthenticatedFetch } from "../hooks";
 import { useEffect, useState, useCallback } from "react";
@@ -273,6 +274,8 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
         Mobile: "",
     });
 
+    const [isButtonLoading, setIsButtonLoading] = useState(false);
+
     // Modals après soumission du formulaire
     const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
     const [successData, setSuccessData] = useState(null);
@@ -341,6 +344,8 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
 
     // Gestion de l'appui sur le bouton de soumission du formulaire
     const handleSubmit = async () => {
+        setIsButtonLoading(true);
+
         const fields = [
             "Facture",
             // "exCodeBarre",
@@ -364,6 +369,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
 
         setErrors(newErrors);
 
+        // Debogage
         console.log(JSON.stringify(formState, null, 4));
 
         // Si le formulaire ne contient pas d'erreurs, on le soumet
@@ -371,6 +377,8 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             // console.log(JSON.stringify(formState, null, 4));
             submitForm();
         }
+
+        setIsButtonLoading(false);
     };
 
     return (
@@ -552,7 +560,11 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                         }}
                     />
 
-                    <Button submit primary={true}>
+                    <Button
+                        submit
+                        icon={SendMajor}
+                        loading={isButtonLoading}
+                        primary={true}>
                         Valider
                     </Button>
                 </VerticalStack>

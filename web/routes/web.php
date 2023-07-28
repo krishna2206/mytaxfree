@@ -148,11 +148,6 @@ Route::post('/api/webhooks', function (Request $request) {
     }
 });
 
-Route::get('/api/bve/show/{codebarre}', function (Request $request, $codebarre) {
-    $bve_data = CurlCustom::get_bve($codebarre, "SH12345678")['response_data'];
-    return Response()->json($bve_data);
-})->middleware('shopify.auth');
-
 Route::get('/api/orders', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
@@ -196,7 +191,12 @@ Route::get('/api/bve/show', function (Request $request) {
     }
     $bves = CurlCustom::get_BVEs("SH12345678")["response_data"]["BVE"] ?? [];
     return Response()->json($bves);
-})->middleware('shopify.auth');
+});
+
+Route::get('/api/bve/show/{codebarre}', function (Request $request, $codebarre) {
+    $bve_data = CurlCustom::get_bve($codebarre, "SH12345678")['response_data'];
+    return Response()->json($bve_data);
+});
 
 Route::post('/api/barcode', function (Request $request) {
     $seller_id = "SH12345678"; // TODO : To be removed
@@ -266,7 +266,7 @@ Route::post('/api/passport/scan', function (Request $request) {
     $localFile = $path . $filename;
     $remoteFile = '/' . $filename;
 
-    $client = new SFTPClient('mytaxfree.fr', 22, 'Shopify', 'am6yR8C5fhM2G5');
+    $client = new SFTPClient('109.190.104.95', 22, 'Shopify', 'am6yR8C5fhM2G5');
     $client->uploadFile($localFile, $remoteFile);
 
     $fileNameWithoutExt = pathinfo($filename, PATHINFO_FILENAME);
@@ -275,8 +275,3 @@ Route::post('/api/passport/scan', function (Request $request) {
 
     return response()->json($response);
 });
-
-// Static files serving
-Route::get('/detaxe/{path?}', function($path = ""){
-    return File::get(public_path(). '/detaxe/index.html');
-})->where('path', '.*');
