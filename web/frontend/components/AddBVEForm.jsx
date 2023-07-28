@@ -37,8 +37,10 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     });
     const [selectedCountry, setSelectedCountry] = useState("");
     const handleCountryChange = (value) => {
-        setSelectedCountry(value);
-        setFormState({ ...formState, IDPays: value, Nationalite: value });
+        if (!passport) {
+            setSelectedCountry(value);
+            setFormState({ ...formState, IDPays: value, Nationalite: value });
+        }
     };
     let countriesOptions = [];
     if (countriesStatus === "success") {
@@ -91,12 +93,14 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
         )
     );
     const handleDateNaissanceChange = (selectedDate) => {
-        console.log(selectedDate);
-        setDateNaissance(formatDate(selectedDate));
-        setFormState({
-            ...formState,
-            DateN: formatDate(selectedDate),
-        });
+        if (!passport) {
+            console.log(selectedDate);
+            setDateNaissance(formatDate(selectedDate));
+            setFormState({
+                ...formState,
+                DateN: formatDate(selectedDate),
+            });
+        }
     };
     const [dateDepart, setDateDepart] = useState(formatDate(new Date()));
     const handleDateDepartChange = (selectedDate) => {
@@ -206,8 +210,10 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             : "")
     );
     const handleNomChange = (value) => {
-        setNom(value);
-        setFormState({ ...formState, Nom: value });
+        if (!passport) {
+            setNom(value);
+            setFormState({ ...formState, Nom: value });
+        }
     };
 
     const [Prenom, setPrenom] = useState(
@@ -218,22 +224,28 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             : "")
     );
     const handlePrenomChange = (value) => {
-        setPrenom(value);
-        setFormState({ ...formState, Prenom: value });
+        if (!passport) {
+            setPrenom(value);
+            setFormState({ ...formState, Prenom: value });
+        }
     };
 
     const [Addresse, setAddresse] = useState(
         passport ? (passport.Adresse ? passport.Adresse : "") : (orderDetail ? (orderDetail.customer ? (orderDetail.customer.default_address ? orderDetail.customer.default_address.name : "" ) : "") : "")
     );
     const handleAddresseChange = (value) => {
-        setAddresse(value);
-        setFormState({ ...formState, Addresse: value });
+        if (!passport) {
+            setAddresse(value);
+            setFormState({ ...formState, Addresse: value });
+        }
     };
 
     const [Passeport, setPasseport] = useState(passport ? passport.Passeport : "");
     const handlePasseportChange = (value) => {
-        setPasseport(value);
-        setFormState({ ...formState, Passeport: value });
+        if (!passport) {
+            setPasseport(value);
+            setFormState({ ...formState, Passeport: value });
+        }
     };
 
     const [Messagerie, setMessagerie] = useState("");
