@@ -208,7 +208,10 @@ export default function ScanPassport() {
 
             <Modal
                 open={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    localStorage.setItem("passport", null);
+                }}
                 title="Résultat du scan"
                 primaryAction={{
                     content:
@@ -223,7 +226,10 @@ export default function ScanPassport() {
                 secondaryActions={[
                     {
                         content: "Fermer",
-                        onAction: () => setIsModalOpen(false),
+                        onAction: () => {
+                            setIsModalOpen(false);
+                            localStorage.setItem("passport", null);
+                        },
                     },
                 ]}
             >
