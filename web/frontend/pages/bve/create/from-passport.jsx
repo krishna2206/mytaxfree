@@ -4,6 +4,7 @@ import {
     Text,
     SkeletonBodyText,
     Select,
+    Banner,
 } from "@shopify/polaris";
 import { ListMajor } from "@shopify/polaris-icons";
 
@@ -26,11 +27,17 @@ export default function CreateBveFromPassport() {
         console.log(selectedOrder);
     }, []);
 
-    const { data: orders, status: ordersStatus } = useAppQuery({
+    const {
+        data: orders,
+        status: ordersStatus,
+        isLoading: isLoadingOrders,
+        isError: isErrorOrders,
+        isSuccess: isSuccessOrders,
+    } = useAppQuery({
         url: "/api/orders",
     });
     let ordersOptions = [];
-    if (ordersStatus === "success") {
+    if (ordersStatus === "success" && orders.orders) {
         ordersOptions = orders.orders.map((order) => {
             const date = new Date(order.created_at);
             const formattedDate = `${("0" + date.getDate()).slice(-2)}/${(
@@ -60,7 +67,7 @@ export default function CreateBveFromPassport() {
         }
     }, [selectedOrder]);
 
-    const app = useContext(Context)
+    const app = useContext(Context);
     const handleMenuClick = () => {
         const redirect = Redirect.create(app);
         redirect.dispatch(Redirect.Action.APP, `/`);
@@ -70,50 +77,75 @@ export default function CreateBveFromPassport() {
         redirect.dispatch(Redirect.Action.APP, `/bve/list`);
     };
 
-    return (
-        <>
-            <TitleBar
-                title="Création d'une détaxe"
-                primaryAction={
-                    {
-                        icon: ListMajor,
-                        content: 'Liste des BVE',
-                        onAction: () => handleBVEListClick(),
-                    }
-                }
-                secondaryActions={[
-                    {
-                        icon: ListMajor,
-                        content: 'Menu',
-                        onAction: () => handleMenuClick(),
-                    },
-                ]}
-            />
+    if (isLoadingOrders) return <SkeletonBodyText lines={5} />;
+
+    if (isErrorOrders)
+        return (
             <div style={{ padding: "20px" }}>
-                <VerticalStack gap="4">
-                    <Text variant="headingXl" as="h4">
-                        Choisir la commande
-                    </Text>
-
-                    <Select
-                        label="Commandes"
-                        options={ordersOptions}
-                        onChange={handleOrderChange}
-                        value={selectedOrder}
-                    />
-
-                    {selectedOrder && !orderDetail && (
-                        <SkeletonBodyText lines={5} />
-                    )}
-                    {selectedOrder && orderDetail && (
-                        <AddBVEForm
-                            selectedOrder={selectedOrder}
-                            orderDetail={orderDetail}
-                            passport={passport}
-                        />
-                    )}
-                </VerticalStack>
+                <Banner status="critical">
+                    Une erreur est survenue lors de la récupération des
+                    commandes
+                </Banner>
             </div>
-        </>
-    );
+        );
+
+    if (isSuccessOrders && !orders.orders && orders.errors)
+        return (
+            <div style={{ padding: "20px" }}>
+                <Banner status="critical">
+                    Une erreur est survenue lors de la récupération des
+                    commandes :<br></br>
+                    {orders.errors}
+                </Banner>
+            </div>
+        );
+
+    if (isSuccessOrders && !orders.orders && !orders.errors)
+        return <Text>Aucune commande disponible</Text>;
+
+    if (isSuccessOrders && orders.orders && !orders.errors)
+        return (
+            <>
+                <TitleBar
+                    title="Création d'une détaxe"
+                    primaryAction={{
+                        icon: ListMajor,
+                        content: "Liste des BVE",
+                        onAction: () => handleBVEListClick(),
+                    }}
+                    secondaryActions={[
+                        {
+                            icon: ListMajor,
+                            content: "Menu",
+                            onAction: () => handleMenuClick(),
+                        },
+                    ]}
+                />
+                <div style={{ padding: "20px" }}>
+                    <VerticalStack gap="4">
+                        <Text variant="headingXl" as="h4">
+                            Choisir la commande
+                        </Text>
+
+                        <Select
+                            label="Commandes"
+                            options={ordersOptions}
+                            onChange={handleOrderChange}
+                            value={selectedOrder}
+                        />
+
+                        {selectedOrder && !orderDetail && (
+                            <SkeletonBodyText lines={5} />
+                        )}
+                        {selectedOrder && orderDetail && (
+                            <AddBVEForm
+                                selectedOrder={selectedOrder}
+                                orderDetail={orderDetail}
+                                passport={passport}
+                            />
+                        )}
+                    </VerticalStack>
+                </div>
+            </>
+        );
 }

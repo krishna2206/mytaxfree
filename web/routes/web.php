@@ -198,6 +198,12 @@ Route::get('/api/bve/show/{codebarre}', function (Request $request, $codebarre) 
     return Response()->json($bve_data);
 });
 
+Route::get('/api/bve/generatepdf/{codebarre}', function ($codebarre) {
+    $pdf_data = CurlCustom::generer_pdf($codebarre) ;
+    // $pdf_data = ['codebarre' => $codebarre];
+    return Response()->json($pdf_data);
+});
+
 Route::post('/api/barcode', function (Request $request) {
     $seller_id = "SH12345678"; // TODO : To be removed
 

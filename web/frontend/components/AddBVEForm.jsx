@@ -117,7 +117,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     }, []);
 
     const [formState, setFormState] = useState({
-        Facture: "",
+        Facture: orderDetail.id,
         exCodeBarre: "",
         AchatLe: dateAchat,
         Nom: passport ? passport.Nom : (orderDetail ? orderDetail.customer ? orderDetail.customer.first_name : "" : ""),
@@ -190,7 +190,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     }, [refundModesStatus]);
 
     // Gestion des champs textes
-    const [Facture, setFacture] = useState("");
+    const [Facture, setFacture] = useState(orderDetail.id);
     const handleFactureChange = (value) => {
         setFacture(value);
         setFormState({ ...formState, Facture: value });

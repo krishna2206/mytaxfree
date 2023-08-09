@@ -1,13 +1,44 @@
 import { useParams } from "react-router-dom";
 
-import React, { useContext } from "react";
-import { Card, Layout, SkeletonBodyText, Stack, Text } from "@shopify/polaris";
-import { useAppQuery } from "../../../hooks";
+import React, { useCallback, useContext, useState } from "react";
+import {
+    Button,
+    Card,
+    Layout,
+    Modal,
+    PageActions,
+    SkeletonBodyText,
+    Stack,
+    Text,
+} from "@shopify/polaris";
+import { useAppQuery, useAuthenticatedFetch } from "../../../hooks";
 import { Context, TitleBar } from "@shopify/app-bridge-react";
 import { Redirect } from "@shopify/app-bridge/actions";
 
 export default function BVEPage() {
     const { codebarre } = useParams();
+    const fetch = useAuthenticatedFetch();
+
+    /// PDF modale
+    const [activeModale, setActiveModale] = useState(false);
+    const handleOpenModale = useCallback(() => {
+        setActiveModale(true);
+        console.log("open");
+    }, []);
+    const handleCloseModale = useCallback(() => setActiveModale(false), []);
+    const modaleresponse = (
+        <Modal
+            titleHidden
+            open={activeModale}
+            onClose={handleCloseModale}
+            instant
+        >
+            <Modal.Section>
+                <p>BVE non téléchargeable !!</p>
+            </Modal.Section>
+        </Modal>
+    );
+    /// end
 
     const formatDate = (dateString) => {
         if (dateString) {
@@ -26,22 +57,10 @@ export default function BVEPage() {
     } = useAppQuery({
         url: `/api/bve/show/${codebarre}`,
     });
+
     if (isloading_bve) {
         return (
             <>
-                <TitleBar
-                    title={`Détail du détaxe N° ${codebarre}`}
-                    primaryAction={{
-                        content: "Retour à la liste des détaxes",
-                        onAction: () => handleBVEListClick(),
-                    }}
-                    secondaryActions={[
-                        {
-                            content: "Retour au menu",
-                            onAction: () => handleMenuClick(),
-                        },
-                    ]}
-                />
                 <SkeletonBodyText />
             </>
         );
@@ -58,26 +77,51 @@ export default function BVEPage() {
         redirect.dispatch(Redirect.Action.APP, `/bve/list`);
     };
 
+    //pdf on click
+    const handPdfClick = async () => {
+        if (bve.Douanes === 0) {
+            const response = await fetch(`/api/bve/generatepdf/${codebarre}`);
+            if (response.ok) {
+                const rawData = await response.text();
+                console.log(JSON.parse(rawData));
+            } else {
+                console.log(
+                    "Réponse non valide :",
+                    response.status,
+                    response.statusText
+                );
+            }
+        } else {
+            handleOpenModale();
+        }
+    };
+    ///end
     return (
         <>
             <TitleBar
-                title={`Détail du détaxe N° ${codebarre}`}
+                    title={`Détail du détaxe N° ${codebarre}`}
+                    primaryAction={{
+                        content: "Retour à la liste des détaxes",
+                        onAction: () => handleBVEListClick(),
+                    }}
+                    secondaryActions={[
+                        {
+                            content: "Retour au menu",
+                            onAction: () => handleMenuClick(),
+                        },
+                    ]}
+                />
+            <PageActions
                 primaryAction={{
-                    content: "Retour à la liste des détaxes",
-                    onAction: () => handleBVEListClick(),
+                    content: "Télécharger PDF",
+                    onAction: () => handPdfClick(),
                 }}
-                secondaryActions={[
-                    {
-                        content: "Retour au menu",
-                        onAction: () => handleMenuClick(),
-                    },
-                ]}
             />
-
             <Card title="Détails du BVE">
                 <Card.Section>
                     <Layout>
                         <Layout.Section>
+                            {modaleresponse}
                             <Stack vertical>
                                 <Text>CodeBarre: {bve.CodeBarre}</Text>
                                 <Text>Facture: {bve.Facture}</Text>
