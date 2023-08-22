@@ -6,6 +6,7 @@ use App\Lib\CurlCustom;
 use App\Lib\EnsureBilling;
 use App\Lib\ProductCreator;
 use App\Lib\SFTPClient;
+use App\Lib\Utils as AppUtils;
 use App\Models\Session;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
@@ -36,7 +37,7 @@ use Shopify\Webhooks\Topics;
 |
 */
 
-// Shopify-related routes
+// Authentication
 Route::fallback(function (Request $request) {
     if (Context::$IS_EMBEDDED_APP &&  $request->query("embedded", false) === "1") {
         if (env('APP_ENV') === 'production') {
@@ -90,46 +91,8 @@ Route::get('/api/auth/callback', function (Request $request) {
     return redirect($redirectUrl);
 });
 
-Route::get('/api/products/count', function (Request $request) {
-    /** @var AuthSession */
-    $session = $request->get('shopifySession'); // Provided by the shopify.auth middleware, guaranteed to be active
 
-    $client = new Rest($session->getShop(), $session->getAccessToken());
-    $result = $client->get('products/count');
-
-    return response($result->getDecodedBody());
-})->middleware('shopify.auth');
-
-Route::get('/api/products/create', function (Request $request) {
-    /** @var AuthSession */
-    $session = $request->get('shopifySession'); // Provided by the shopify.auth middleware, guaranteed to be active
-
-    $success = $code = $error = null;
-    try {
-        ProductCreator::call($session, 5);
-        $success = true;
-        $code = 200;
-        $error = null;
-    } catch (\Exception $e) {
-        $success = false;
-
-        if ($e instanceof ShopifyProductCreatorException) {
-            $code = $e->response->getStatusCode();
-            $error = $e->response->getDecodedBody();
-            if (array_key_exists("errors", $error)) {
-                $error = $error["errors"];
-            }
-        } else {
-            $code = 500;
-            $error = $e->getMessage();
-        }
-
-        Log::error("Failed to create products: $error");
-    } finally {
-        return response()->json(["success" => $success, "error" => $error], $code);
-    }
-})->middleware('shopify.auth');
-
+// Webhooks
 Route::post('/api/webhooks', function (Request $request) {
     try {
         $topic = $request->header(HttpHeaders::X_SHOPIFY_TOPIC, '');
@@ -148,6 +111,8 @@ Route::post('/api/webhooks', function (Request $request) {
     }
 });
 
+
+// Custom added
 Route::get('/api/orders', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
@@ -175,13 +140,17 @@ Route::get('/api/countries', function () {
     return $response["response_data"];
 });
 
-Route::get('/api/refund-modes', function () {
-    $seller_id = "SH12345678"; // TODO : To be removed
+Route::get('/api/refund-modes', function (Request $request) {
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
 
-    $url = "https://www.mytaxfree.fr/API/_STMag/" . $seller_id;
+    // $shop_id = "SH12345678"; // TODO : To be removed
+    $shop_id = getShopID($session);
+
+    $url = "https://www.mytaxfree.fr/API/_STMag/" . $shop_id;
     $response = CurlCustom::retrieve_data($url);
     return $response["response_data"];
-});
+})->middleware('shopify.auth');
 
 Route::get('/api/bve/show', function (Request $request) {
     $barcode = $request->input("barcode");
@@ -199,47 +168,38 @@ Route::get('/api/bve/show/{codebarre}', function (Request $request, $codebarre) 
 });
 
 Route::get('/api/bve/generatepdf/{codebarre}', function ($codebarre) {
-    $pdf_data = CurlCustom::generer_pdf($codebarre) ;
-    // $pdf_data = ['codebarre' => $codebarre];
-    return Response()->json($pdf_data);
+    $response = CurlCustom::generer_pdf($codebarre);
+
+    $status_code = $response["status_code"];
+
+    if ($status_code == 200) {
+        $pdf_data = $response["response_data"];
+
+        $pdf_data = [
+            "status" => "success",
+            "data" => $pdf_data
+        ];
+
+        return Response()->json($pdf_data);
+    } else {
+        return Response()->json([
+            "status" => "error"
+        ]);
+    }
 });
 
 Route::post('/api/barcode', function (Request $request) {
-    $seller_id = "SH12345678"; // TODO : To be removed
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    // $shop_id = "SH12345678"; // TODO : To be removed
+    $shop_id = getShopID($session);
 
     $data = $request->json()->all();
 
-    // Statique juste pour test
-    // $data['MTTC'] = 200;
-    // $data['MTVA'] = 33.33;
-    // $data['MHT'] = 166.67;
-
-    // $data['Articles'] = [
-    //     [
-    //         "Code" => "1",
-    //         "Description" => "Montre",
-    //         "Identification" => "NS 123456",
-    //         "PU" => 100,
-    //         "PTTC" => 100,
-    //         "QTT" => 1,
-    //         "TTVA" => 20,
-    //         "PTVA" => 16.65
-    //     ],
-    //     [
-    //         "Code" => "2",
-    //         "Description" => "Bague",
-    //         "Identification" => "",
-    //         "PU" => 100,
-    //         "PTTC" => 100,
-    //         "QTT" => 1,
-    //         "TTVA" => 20,
-    //         "PTVA" => 16.65
-    //     ]
-    // ];
-
-    $response = CurlCustom::generate_bar_code($data, $seller_id);
+    $response = CurlCustom::generate_bar_code($data, $shop_id);
     return $response;
-});
+})->middleware('shopify.auth');
 
 Route::post('/api/set-operation-status', function (Request $request) {
     $data = $request->json()->all();
@@ -251,6 +211,12 @@ Route::post('/api/set-operation-status', function (Request $request) {
 });
 
 Route::post('/api/passport/scan', function (Request $request) {
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    // $shop_id = "SH12345678"; // TODO : To be removed
+    $shop_id = getShopID($session);
+
     if (!$request->hasFile('file')) {
         return response()->json(['upload_file_not_found'], 400);
     }
@@ -260,11 +226,9 @@ Route::post('/api/passport/scan', function (Request $request) {
         return response()->json(['invalid_file_upload'], 400);
     }
 
-    $seller_id = "SH12345678"; // TODO : To be removed
-
     $date = date('YmdHisv');
     $extension = '.' . $file->getClientOriginalExtension();
-    $filename = $seller_id . '-' . $date . $extension;
+    $filename = $shop_id . '-' . $date . $extension;
 
     $path = public_path() . '/uploads/passports/';
     $file->move($path, $filename);
@@ -277,7 +241,35 @@ Route::post('/api/passport/scan', function (Request $request) {
 
     $fileNameWithoutExt = pathinfo($filename, PATHINFO_FILENAME);
 
-    $response = CurlCustom::scan_passport($fileNameWithoutExt, $seller_id);
+    $response = CurlCustom::scan_passport($fileNameWithoutExt, $shop_id);
 
     return response()->json($response);
-});
+})->middleware('shopify.auth');
+
+Route::get('/api/shop', function (Request $request) {
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    $client = new Rest($session->getShop(), $session->getAccessToken());
+    $result = $client->get("shop");
+
+    return response($result->getDecodedBody());
+})->middleware('shopify.auth');
+
+function getShopID($session) {
+    $client = new Rest($session->getShop(), $session->getAccessToken());
+    $result = $client->get("shop");
+
+    $shop_id = $result->getDecodedBody()["shop"]["id"];
+    return "SH$shop_id";
+}
+
+
+// Route::get("/api/uid", function (Request $request) {
+//     /** @var AuthSession */
+//     $session = $request->get('shopifySession');
+
+//     return response()->json([
+//         "uid" => $session->getShop() . "." . AppUtils::v3_UUID("5f6384bfec4ca0b2d4114a13aa2a5435", $session->getAccessToken()),
+//     ]);
+// })->middleware("shopify.auth");

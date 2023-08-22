@@ -123,12 +123,12 @@ class CurlCustom
         ];
     }
 
-    public static function get_bve($barcode, $seller_id)
+    public static function get_bve($barcode, $shop_id)
     {
         $curl = curl_init();
         $payload = json_encode(["DocID" => $barcode]);
         curl_setopt_array($curl, array(
-            CURLOPT_URL => "https://www.mytaxfree.fr/API/_STBve/" . $seller_id,
+            CURLOPT_URL => "https://www.mytaxfree.fr/API/_STBve/" . $shop_id,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,
@@ -155,7 +155,7 @@ class CurlCustom
     {
         $curl = curl_init();
         curl_setopt_array($curl, array(
-            CURLOPT_URL => "https://www.mytaxfree.fr/API/_STPdf/". $barcode,
+            CURLOPT_URL => "https://www.mytaxfree.fr/API/_STPdf/",
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,
@@ -163,6 +163,11 @@ class CurlCustom
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => 'GET',
+            CURLOPT_POSTFIELDS => json_encode(
+                [
+                    "DocID" => $barcode
+                ]
+            ),
             CURLOPT_HTTPHEADER => array(
                 'X-External-Agent-Code: MyTaxFree',
                 'Authorization: Bearer 4$hopify$'
@@ -172,16 +177,16 @@ class CurlCustom
         curl_close($curl);
 
         return [
-            "response_data" => json_decode($response, true),
+            "response_data" => $response,
             "status_code" => curl_getinfo($curl, CURLINFO_HTTP_CODE)
         ];
     }
 
-    public static function scan_passport($filename, $seller_id) {
+    public static function scan_passport($filename, $shop_id) {
         $curl = curl_init();
         $payload = json_encode(["DocJpg" => $filename]);
         curl_setopt_array($curl, array(
-            CURLOPT_URL => "https://www.mytaxfree.fr/API/_STSPass/" . $seller_id,
+            CURLOPT_URL => "https://www.mytaxfree.fr/API/_STSPass/" . $shop_id,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,

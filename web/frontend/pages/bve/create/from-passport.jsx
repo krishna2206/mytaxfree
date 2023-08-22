@@ -49,7 +49,7 @@ export default function CreateBveFromPassport() {
 
             return {
                 label: `Commande N°${order.id} du ${formattedDate}`,
-                value: order.id,
+                value: `${order.id}`,
             };
         });
     }

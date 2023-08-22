@@ -11,18 +11,20 @@ import {
     ResourceList,
     TextStyle,
     Thumbnail,
+    Banner,
 } from "@shopify/polaris";
-import { SendMajor } from "@shopify/polaris-icons";
+import { SendMajor, PrintMajor } from "@shopify/polaris-icons";
 
 import { useAppQuery, useAuthenticatedFetch } from "../hooks";
 import { useEffect, useState, useCallback } from "react";
 
-import DatePickerPattern from "./custom/DatePickerPattern";
+import DatePickerSelect from "./custom/DatePickerSelect";
 
-function formatDate(date) {
-    let year = date.getFullYear();
-    let month = (date.getMonth() + 1).toString().padStart(2, "0");
-    let day = date.getDate().toString().padStart(2, "0");
+// a function that from this date string DD-MM-YYYY, remove the dashes and return YYYYMMDD
+function formatDateFromDashes(date) {
+    let year = date.split("-")[2];
+    let month = date.split("-")[1];
+    let day = date.split("-")[0];
     let formattedDate = `${year}${month}${day}`;
 
     return formattedDate;
@@ -31,23 +33,45 @@ function formatDate(date) {
 export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     const fetch = useAuthenticatedFetch();
 
+    // const [isLoadingPDFButton, setIsLoadingPDFButton] = useState(false);
+
     // Remplissage du select de la liste des pays
     const { data: countries, status: countriesStatus } = useAppQuery({
         url: "/api/countries",
     });
+
+    let countriesOptions = [{ label: "---", value: "" }];
+    let nationalityOptions = [{ label: "---", value: "" }];
+
     const [selectedCountry, setSelectedCountry] = useState("");
     const handleCountryChange = (value) => {
         if (!passport) {
             setSelectedCountry(value);
-            setFormState({ ...formState, IDPays: value, Nationalite: value });
+            setFormState({ ...formState, IDPays: value });
         }
     };
-    let countriesOptions = [];
+    const [selectedNationality, setSelectedNationality] = useState("");
+    const handleNationalityChange = (value) => {
+        if (!passport) { 
+            setSelectedNationality(value);
+            setFormState({ ...formState, Nationalite: value });
+        }
+    };
+
     if (countriesStatus === "success") {
-        countriesOptions = countries.Pays.map((country) => ({
-            label: country.NomPays,
-            value: country.IDPays,
-        }));
+        countries.Pays.forEach((country) => {
+            countriesOptions.push({
+                label: country.NomPays,
+                value: country.IDPays,
+            });
+
+            if (country.Nationalite === "vrai") {
+                nationalityOptions.push({
+                    label: country.NomPays,
+                    value: country.IDPays,
+                });
+            }
+        });
     }
 
     // Remplissage du select de la liste des modes de remboursement
@@ -68,50 +92,35 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     }
 
     // Gestions des champs du formulaire
-    const [dateAchat, setDateAchat] = useState(formatDate(new Date()));
-    const handleDateAchatChange = (selectedDate) => {
-        setDateAchat(formatDate(selectedDate));
-        setFormState({ ...formState, AchatLe: formatDate(selectedDate) });
-    };
-    const [dateValiditePasseport, setDateValiditePasseport] = useState(
-        formatDate(new Date())
-    );
-    const handleDateValiditePasseportChange = (selectedDate) => {
-        setDateValiditePasseport(formatDate(selectedDate));
-        setFormState({
-            ...formState,
-            PassportValid: formatDate(selectedDate),
-        });
-    };
-    const [dateNaissance, setDateNaissance] = useState(
-        passport
-        ? passport.DateNaissance
-        : formatDate(
-            new Date(
-                "Sat Jan 01 2000 03:00:00 GMT+0300 (heure d'été d'Europe de l'Est)"
-            )
-        )
-    );
-    const handleDateNaissanceChange = (selectedDate) => {
-        if (!passport) {
-            console.log(selectedDate);
-            setDateNaissance(formatDate(selectedDate));
-            setFormState({
-                ...formState,
-                DateN: formatDate(selectedDate),
-            });
-        }
-    };
-    const [dateDepart, setDateDepart] = useState(formatDate(new Date()));
-    const handleDateDepartChange = (selectedDate) => {
-        setDateDepart(formatDate(selectedDate));
-        setFormState({
-            ...formState,
-            DateDepart: formatDate(selectedDate),
-        });
-    };
 
-    const [selected, setSelected] = useState("ReglCarte");
+    const [selectedDateAchat, setSelectedDateAchat] = useState("");
+    const [selectedDateValiditePasseport, setSelectedDateValiditePasseport] =
+        useState("");
+    const [selectedDateNaissance, setSelectedDateNaissance] = useState("");
+    const [selectedDateDepart, setSelectedDateDepart] = useState("");
+
+    useEffect(() => {
+        setFormState((prevState) => ({
+            ...prevState,
+            AchatLe: formatDateFromDashes(selectedDateAchat),
+        }));
+    }, [selectedDateAchat]);
+
+    useEffect(() => {
+        setFormState((prevState) => ({
+            ...prevState,
+            PassportValid: formatDateFromDashes(selectedDateValiditePasseport),
+        }));
+    }, [selectedDateValiditePasseport]);
+
+    useEffect(() => {
+        setFormState((prevState) => ({
+            ...prevState,
+            DateN: formatDateFromDashes(selectedDateNaissance),
+        }));
+    }, [selectedDateNaissance]);
+
+    const [selected, setSelected] = useState("ReglCash");
     const handleChoiceListChange = useCallback((value) => {
         setSelected(value);
     }, []);
@@ -119,15 +128,41 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     const [formState, setFormState] = useState({
         Facture: orderDetail.id,
         exCodeBarre: "",
-        AchatLe: dateAchat,
-        Nom: passport ? passport.Nom : (orderDetail ? orderDetail.customer ? orderDetail.customer.first_name : "" : ""),
-        Prenom: passport ? passport.Prenom : (orderDetail ? orderDetail.customer ? orderDetail.customer.last_name : "" : ""),
-        Addresse: passport ? (passport.Adresse ? passport.Adresse : "") : (orderDetail ? (orderDetail.customer ? (orderDetail.customer.default_address ? orderDetail.customer.default_address.name : "" ) : "") : ""),
+        AchatLe: formatDateFromDashes(selectedDateAchat),
+        Nom: passport
+            ? passport.Nom
+            : orderDetail
+            ? orderDetail.customer
+                ? orderDetail.customer.first_name
+                : ""
+            : "",
+        Prenom: passport
+            ? passport.Prenom
+            : orderDetail
+            ? orderDetail.customer
+                ? orderDetail.customer.last_name
+                : ""
+            : "",
+        Addresse: passport
+            ? passport.Adresse
+                ? passport.Adresse
+                : ""
+            : orderDetail
+            ? orderDetail.customer
+                ? orderDetail.customer.default_address
+                    ? orderDetail.customer.default_address.name
+                    : ""
+                : ""
+            : "",
         IDPays: passport ? passport.Pays : selectedCountry,
         Passeport: passport ? passport.Passeport : "",
-        PassportValid: passport ? passport.ValiditePasseport : dateValiditePasseport,
-        Nationalite: passport ? passport.Nationalite : selectedCountry,
-        DateN: passport ? passport.DateNaissance : dateNaissance,
+        PassportValid: passport
+            ? passport.ValiditePasseport
+            : formatDateFromDashes(selectedDateValiditePasseport),
+        Nationalite: passport ? passport.Nationalite : selectedNationality,
+        DateN: passport
+            ? passport.DateNaissance
+            : formatDateFromDashes(selectedDateNaissance),
         Messagerie: "",
         ReglCarte: selected.includes("ReglCarte") ? "1" : "0",
         ReglCheq: selected.includes("ReglCheq") ? "1" : "0",
@@ -137,20 +172,21 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
         Compte: "",
         Beneficiaire: "",
         Mobile: "",
-        VolLe: dateDepart,
-        Articles: orderDetail ? orderDetail.line_items.map(
-            (item) => {
-                return {
-                    Code: item.id,
-                    Description: item.name,
-                    Identification: "",
-                    PU: parseFloat(item.price),
-                    PTTC: (parseFloat(item.price) * 1.2) * item.quantity,
-                    QTT: item.quantity,
-                    TTVA: 20,
-                    PTVA: (parseFloat(item.price) * 0.2) * item.quantity,
-                };
-            }) : [],
+        VolLe: formatDateFromDashes(selectedDateDepart),
+        Articles: orderDetail
+            ? orderDetail.line_items.map((item) => {
+                  return {
+                      Code: item.id,
+                      Description: item.name,
+                      Identification: "",
+                      PU: parseFloat(item.price),
+                      PTTC: parseFloat(item.price) * 1.2 * item.quantity,
+                      QTT: item.quantity,
+                      TTVA: 20,
+                      PTVA: parseFloat(item.price) * 0.2 * item.quantity,
+                  };
+              })
+            : [],
     });
 
     useEffect(() => {
@@ -162,18 +198,6 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             ReglAutre: selected.includes("ReglAutre") ? "1" : "0",
         }));
     }, [selected]);
-
-    useEffect(() => {
-        if (countriesStatus === "success" && countries.Pays.length > 0) {
-            const firstCountry = countries.Pays[0].IDPays;
-            setSelectedCountry(firstCountry);
-            setFormState((prevState) => ({
-                ...prevState,
-                IDPays: firstCountry,
-                Nationalite: firstCountry,
-            }));
-        }
-    }, [countriesStatus]);
 
     useEffect(() => {
         if (
@@ -196,18 +220,14 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
         setFormState({ ...formState, Facture: value });
     };
 
-    const [exCodeBarre, setExCodeBarre] = useState("");
-    const handleExCodeBarreChange = (value) => {
-        setExCodeBarre(value);
-        setFormState({ ...formState, exCodeBarre: value });
-    };
-
     const [Nom, setNom] = useState(
-        passport ? passport.Nom : (orderDetail
+        passport
+            ? passport.Nom
+            : orderDetail
             ? orderDetail.customer
                 ? orderDetail.customer.first_name
                 : ""
-            : "")
+            : ""
     );
     const handleNomChange = (value) => {
         if (!passport) {
@@ -217,11 +237,13 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     };
 
     const [Prenom, setPrenom] = useState(
-        passport ? passport.Prenom : (orderDetail
+        passport
+            ? passport.Prenom
+            : orderDetail
             ? orderDetail.customer
                 ? orderDetail.customer.last_name
                 : ""
-            : "")
+            : ""
     );
     const handlePrenomChange = (value) => {
         if (!passport) {
@@ -231,7 +253,17 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     };
 
     const [Addresse, setAddresse] = useState(
-        passport ? (passport.Adresse ? passport.Adresse : "") : (orderDetail ? (orderDetail.customer ? (orderDetail.customer.default_address ? orderDetail.customer.default_address.name : "" ) : "") : "")
+        passport
+            ? passport.Adresse
+                ? passport.Adresse
+                : ""
+            : orderDetail
+            ? orderDetail.customer
+                ? orderDetail.customer.default_address
+                    ? orderDetail.customer.default_address.name
+                    : ""
+                : ""
+            : ""
     );
     const handleAddresseChange = (value) => {
         if (!passport) {
@@ -240,7 +272,9 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
         }
     };
 
-    const [Passeport, setPasseport] = useState(passport ? passport.Passeport : "");
+    const [Passeport, setPasseport] = useState(
+        passport ? passport.Passeport : ""
+    );
     const handlePasseportChange = (value) => {
         if (!passport) {
             setPasseport(value);
@@ -295,8 +329,12 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
     const [errorData, setErrorData] = useState(null);
 
+    const [codeBarre, setCodeBarre] = useState("");
+
     // Fonction de soumission du formulaire
     const submitForm = async () => {
+        setIsButtonLoading(true);
+
         const response = await fetch("/api/barcode", {
             method: "POST",
             headers: {
@@ -327,6 +365,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             const secondStatusCode = secondData.status_code;
 
             if (secondStatusCode === 200) {
+                setCodeBarre(responseData);
                 setSuccessData(
                     "Code barre obtenu : " +
                         responseData +
@@ -352,18 +391,18 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
 
             setIsErrorModalOpen(true);
         }
+
+        setIsButtonLoading(false);
     };
 
     // Gestion de l'appui sur le bouton de soumission du formulaire
     const handleSubmit = async () => {
-        setIsButtonLoading(true);
-
         const fields = [
             "Facture",
             // "exCodeBarre",
             "Nom",
             "Prenom",
-            "Addresse",
+            // "Addresse",
             "Passeport",
             "Messagerie",
             // "Compte",
@@ -386,230 +425,335 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
 
         // Si le formulaire ne contient pas d'erreurs, on le soumet
         if (Object.keys(newErrors).length === 0) {
-            // console.log(JSON.stringify(formState, null, 4));
-            submitForm();
-        }
+            // Verify if the dates are not empty and valid (expected : YYYYMMDD), the date can be also undefinedundefinedundefined
+            if (
+                selectedDateAchat &&
+                selectedDateAchat.length === 10 &&
+                selectedDateValiditePasseport &&
+                selectedDateValiditePasseport.length === 10 &&
+                selectedDateNaissance &&
+                selectedDateNaissance.length === 10 &&
+                selectedDateDepart &&
+                selectedDateDepart.length === 10
+            ) {
+                // Remove the banner
+                const errorBlock = document.getElementById("errorBlock");
+                errorBlock.hidden = true;
 
-        setIsButtonLoading(false);
+                submitForm();
+            } else {
+                // Show a banner in the error block
+                const errorBlock = document.getElementById("errorBlock");
+                errorBlock.hidden = false;
+                document.getElementById("errorBlockContent").innerHTML =
+                    "Veuillez remplir les dates correctement";
+            }
+        }
     };
 
-    return (
-        <>
-            <Form onSubmit={handleSubmit}>
-                <VerticalStack gap="2">
-                    <TextField
-                        label="Facture"
-                        placeholder="Facture"
-                        name="Facture"
-                        value={Facture}
-                        error={errors.Facture}
-                        onChange={handleFactureChange}
-                    />
-                    {/* <TextField
-                        label="Ex Code Barre"
-                        placeholder="exCodeBarre"
-                        name="exCodeBarre"
-                        value={exCodeBarre}
-                        error={errors.exCodeBarre}
-                        onChange={handleExCodeBarreChange}
-                    /> */}
-                    <DatePickerPattern
-                        label="Date d'achat"
-                        onDateChange={handleDateAchatChange}
-                    />
-                    <TextField
-                        label="Nom"
-                        placeholder="Nom"
-                        name="Nom"
-                        value={Nom}
-                        error={errors.Nom}
-                        onChange={handleNomChange}
-                    />
-                    <TextField
-                        label="Prénom"
-                        placeholder="Prénom"
-                        name="Prenom"
-                        value={Prenom}
-                        error={errors.Prenom}
-                        onChange={handlePrenomChange}
-                    />
-                    <TextField
-                        label="Addresse"
-                        placeholder="Addresse"
-                        name="Addresse"
-                        value={Addresse}
-                        error={errors.Addresse}
-                        onChange={handleAddresseChange}
-                    />
+    const hexToBinary = (hexString) => {
+        hexString = hexString.replace(/[\r\n]+/gm, "");
+        hexString = hexString.replace(/\s+/g, '');
+        if (hexString.length % 2 !== 0 || hexString.match(/[0-9A-Fa-f]{1,2}/g).length !== hexString.length / 2) {
+            throw new Error(`${hexString} is not a valid hex string.`);
+        }
 
-                    <Select
-                        label="Pays"
-                        options={countriesOptions}
-                        onChange={handleCountryChange}
-                        value={selectedCountry}
-                    />
+        const binary = new Uint8Array(hexString.length / 2);
+        for (let i = 0; i < hexString.length; i += 2) {
+            binary[i/2] = parseInt(hexString.substr(i, 2), 16);
+        }
+        return binary;
+    }
 
-                    <TextField
-                        label="Passeport"
-                        placeholder="Passeport"
-                        name="Passeport"
-                        value={Passeport}
-                        error={errors.Passeport}
-                        onChange={handlePasseportChange}
-                    />
+    const handPdfClick = async () => {
+        // setIsLoadingPDFButton(true);
 
-                    <DatePickerPattern
-                        label="Validité de passeport"
-                        onDateChange={handleDateValiditePasseportChange}
-                    />
+        const response = await fetch(`/api/bve/generatepdf/${codeBarre}`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+            }
+        });
 
-                    <DatePickerPattern
-                        label="Date de naissance"
-                        onDateChange={handleDateNaissanceChange}
-                    />
+        const data = await response.json();
 
-                    <TextField
-                        label="Messagerie"
-                        placeholder="Messagerie"
-                        name="Messagerie"
-                        value={Messagerie}
-                        error={errors.Messagerie}
-                        onChange={handleMessagerieChange}
-                    />
+        if (data.status === "success") {
+            let hexString = data.data;
+            let binaryString = hexToBinary(hexString);
+            let blob = new Blob([binaryString], {type: 'application/pdf'});
+            let url = window.URL.createObjectURL(blob);
 
-                    <Text variant="heading3xl" as="h2">
-                        Règlement des achats en magasin
-                    </Text>
-                    <ChoiceList
-                        choices={[
-                            { label: "Par carte", value: "ReglCarte" },
-                            { label: "Par chèque", value: "ReglCheq" },
-                            { label: "Par cash", value: "ReglCash" },
-                            { label: "Autre", value: "ReglAutre" },
-                        ]}
-                        selected={selected}
-                        onChange={handleChoiceListChange}
-                    />
+            let link = document.createElement('a');
+            link.href = url;
+            link.download = `${codeBarre}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
 
-                    <Select
-                        label="Mode de remboursement"
-                        options={refundModesOptions}
-                        onChange={handleRefundModeChange}
-                        value={selectedRefundMode}
-                    />
+        // setIsLoadingPDFButton(false);
+    };
 
-                    <TextField
-                        label="Compte"
-                        placeholder="Compte"
-                        name="Compte"
-                        value={Compte}
-                        error={errors.Compte}
-                        onChange={handleCompteChange}
-                    />
+        return (
+            <>
+                <Form onSubmit={handleSubmit}>
+                    <VerticalStack gap="2">
+                        <TextField
+                            label="Facture"
+                            placeholder="Facture"
+                            name="Facture"
+                            value={Facture}
+                            error={errors.Facture}
+                            onChange={handleFactureChange}
+                        />
 
-                    <TextField
-                        label="Beneficiaire"
-                        placeholder="Beneficiaire"
-                        name="Beneficiaire"
-                        value={Beneficiaire}
-                        error={errors.Beneficiaire}
-                        onChange={handleBeneficiaireChange}
-                    />
+                        <Text variant="headingLg" as="h5">
+                            Date d'achat
+                        </Text>
+                        <DatePickerSelect
+                            selectedDate={selectedDateAchat}
+                            setSelectedDate={setSelectedDateAchat}
+                        />
+                        <Text>
+                            <strong>Date sélectionné :</strong> {selectedDateAchat}
+                        </Text>
 
-                    <TextField
-                        label="Mobile"
-                        placeholder="Mobile"
-                        name="Mobile"
-                        value={Mobile}
-                        error={errors.Mobile}
-                        onChange={handleMobileChange}
-                    />
+                        <Text variant="headingXl" as="h4">
+                            Information sur l'acheteur
+                        </Text>
 
-                    <DatePickerPattern
-                        label="Date de départ"
-                        onDateChange={handleDateDepartChange}
-                    />
+                        <TextField
+                            label="Nom"
+                            placeholder="Nom"
+                            name="Nom"
+                            value={Nom}
+                            error={errors.Nom}
+                            onChange={handleNomChange}
+                        />
+                        <TextField
+                            label="Prénom"
+                            placeholder="Prénom"
+                            name="Prenom"
+                            value={Prenom}
+                            error={errors.Prenom}
+                            onChange={handlePrenomChange}
+                        />
+                        <TextField
+                            label="Addresse"
+                            placeholder="Addresse"
+                            name="Addresse"
+                            value={Addresse}
+                            error={errors.Addresse}
+                            onChange={handleAddresseChange}
+                        />
 
-                    <Text variant="heading3xl" as="h2">
-                        Liste des articles
-                    </Text>
-                    <ResourceList
-                        resourceName={{ singular: "article", plural: "articles" }}
-                        items={
-                            orderDetail.line_items.map(
-                                (item) => {
-                                    return {
-                                        id: item.id,
-                                        name: item.name,
-                                        price: item.price,
-                                        quantity: item.quantity,
-                                    };
-                                }
-                            )
-                        }
-                        renderItem={(item) => {
-                            const { id, name, price, quantity } = item;
-                            const media = <Thumbnail
-                                source="https://cdn3d.iconscout.com/3d/premium/thumb/product-5806313-4863042.png"
-                                alt="Black choker necklace"
-                            />;
-                            return (
-                                <ResourceList.Item
-                                    id={id}
-                                    media={media}
-                                    accessibilityLabel={`Détails de l'article ${name}`}
-                                >
-                                    <h3>
-                                        <TextStyle variation="strong">
-                                            {name}
-                                        </TextStyle>
-                                    </h3>
-                                    <div>
-                                        {quantity} x {price} €
-                                    </div>
-                                </ResourceList.Item>
-                            );
-                        }}
-                    />
+                        <Select
+                            label="Pays"
+                            options={countriesOptions}
+                            onChange={handleCountryChange}
+                            value={selectedCountry}
+                        />
 
-                    <Button
-                        submit
-                        icon={SendMajor}
-                        loading={isButtonLoading}
-                        primary={true}>
-                        Valider
-                    </Button>
-                </VerticalStack>
-            </Form>
+                        <Select
+                            label="Nationalité"
+                            options={nationalityOptions}
+                            onChange={handleNationalityChange}
+                            value={selectedNationality}
+                        />
 
-            {/* Succès */}
-            <Modal
-                open={isSuccessModalOpen}
-                onClose={() => setIsSuccessModalOpen(false)}
-                title="Ajout BVE réussi"
-            >
-                <Modal.Section>
-                    <TextContainer>
-                        <p
-                            dangerouslySetInnerHTML={{ __html: successData }}
-                        ></p>
-                    </TextContainer>
-                </Modal.Section>
-            </Modal>
+                        <TextField
+                            label="Passeport"
+                            placeholder="Passeport"
+                            name="Passeport"
+                            value={Passeport}
+                            error={errors.Passeport}
+                            onChange={handlePasseportChange}
+                        />
 
-            {/* Erreur */}
-            <Modal
-                open={isErrorModalOpen}
-                onClose={() => setIsErrorModalOpen(false)}
-                title="Erreur"
-                backdrop="static" // Add this line to disable the modal backdrop
-            >
-                <Modal.Section>
-                    <TextContainer>
-                        <p dangerouslySetInnerHTML={{ __html: errorData }}></p>
-                    </TextContainer>
-                </Modal.Section>
-            </Modal>
-        </>
-    );
-}
+                        <Text variant="headingLg" as="h5">
+                            Validité de passeport
+                        </Text>
+                        <DatePickerSelect
+                            selectedDate={selectedDateValiditePasseport}
+                            setSelectedDate={setSelectedDateValiditePasseport}
+                        />
+                        <Text>
+                            <strong>Date sélectionné :</strong>{" "}
+                            {selectedDateValiditePasseport}
+                        </Text>
+
+                        <Text variant="headingLg" as="h5">
+                            Date de naissance
+                        </Text>
+                        <DatePickerSelect
+                            selectedDate={selectedDateNaissance}
+                            setSelectedDate={setSelectedDateNaissance}
+                        />
+                        <Text>
+                            <strong>Date sélectionné :</strong>{" "}
+                            {selectedDateNaissance}
+                        </Text>
+
+                        <TextField
+                            label="Messagerie"
+                            placeholder="Messagerie"
+                            name="Messagerie"
+                            value={Messagerie}
+                            error={errors.Messagerie}
+                            onChange={handleMessagerieChange}
+                        />
+
+                        <Text variant="headingXl" as="h4">
+                            Règlement des achats en magasin
+                        </Text>
+                        <ChoiceList
+                            choices={[
+                                { label: "Par carte", value: "ReglCarte" },
+                                { label: "Par chèque", value: "ReglCheq" },
+                                { label: "Par cash", value: "ReglCash" },
+                                { label: "Autre", value: "ReglAutre" },
+                            ]}
+                            selected={selected}
+                            onChange={handleChoiceListChange}
+                        />
+
+                        <Select
+                            label="Mode de remboursement"
+                            options={refundModesOptions}
+                            onChange={handleRefundModeChange}
+                            value={selectedRefundMode}
+                        />
+
+                        <TextField
+                            label="Compte"
+                            placeholder="Compte"
+                            name="Compte"
+                            value={Compte}
+                            error={errors.Compte}
+                            onChange={handleCompteChange}
+                        />
+
+                        <TextField
+                            label="Beneficiaire"
+                            placeholder="Beneficiaire"
+                            name="Beneficiaire"
+                            value={Beneficiaire}
+                            error={errors.Beneficiaire}
+                            onChange={handleBeneficiaireChange}
+                        />
+
+                        <TextField
+                            label="Mobile"
+                            placeholder="Mobile"
+                            name="Mobile"
+                            value={Mobile}
+                            error={errors.Mobile}
+                            onChange={handleMobileChange}
+                        />
+
+                        <Text variant="headingLg" as="h5">
+                            Date de départ
+                        </Text>
+                        <DatePickerSelect
+                            selectedDate={selectedDateDepart}
+                            setSelectedDate={setSelectedDateDepart}
+                        />
+                        <Text>
+                            <strong>Date sélectionné :</strong> {selectedDateDepart}
+                        </Text>
+
+                        <Text variant="headingXl" as="h4">
+                            Liste des articles
+                        </Text>
+                        <ResourceList
+                            resourceName={{
+                                singular: "article",
+                                plural: "articles",
+                            }}
+                            items={orderDetail.line_items.map((item) => {
+                                return {
+                                    id: item.id,
+                                    name: item.name,
+                                    price: item.price,
+                                    quantity: item.quantity,
+                                };
+                            })}
+                            renderItem={(item) => {
+                                const { id, name, price, quantity } = item;
+                                const media = (
+                                    <Thumbnail source="https://cdn3d.iconscout.com/3d/premium/thumb/product-5806313-4863042.png" />
+                                );
+                                return (
+                                    <ResourceList.Item
+                                        id={id}
+                                        media={media}
+                                        accessibilityLabel={`Détails de l'article ${name}`}
+                                    >
+                                        <h3>
+                                            <TextStyle variation="strong">
+                                                {name}
+                                            </TextStyle>
+                                        </h3>
+                                        <div>
+                                            {quantity} x {price} €
+                                        </div>
+                                    </ResourceList.Item>
+                                );
+                            }}
+                        />
+
+                        <div id="errorBlock" hidden>
+                            <Banner status="critical">
+                                <p id="errorBlockContent"></p>
+                            </Banner>
+                        </div>
+
+                        <Button
+                            submit
+                            icon={SendMajor}
+                            loading={isButtonLoading}
+                            primary={true}
+                        >
+                            Générer la détaxe
+                        </Button>
+                    </VerticalStack>
+                </Form>
+
+                {/* Succès */}
+                <Modal
+                    open={isSuccessModalOpen}
+                    onClose={() => setIsSuccessModalOpen(false)}
+                    title="Ajout BVE réussi"
+                    primaryAction={{
+                        // loading: {isLoadingPDFButton},
+                        icon: PrintMajor,
+                        content: "Télécharger le PDF de la détaxe",
+                        onAction: () => handPdfClick(),
+                    }}
+                >
+                    <Modal.Section>
+                        <TextContainer>
+                            <p
+                                dangerouslySetInnerHTML={{ __html: successData }}
+                            ></p>
+                        </TextContainer>
+                    </Modal.Section>
+                </Modal>
+
+                {/* Erreur */}
+                <Modal
+                    open={isErrorModalOpen}
+                    onClose={() => setIsErrorModalOpen(false)}
+                    title="Erreur"
+                    backdrop="static" // Add this line to disable the modal backdrop
+                >
+                    <Modal.Section>
+                        <TextContainer>
+                            <p dangerouslySetInnerHTML={{ __html: errorData }}></p>
+                        </TextContainer>
+                    </Modal.Section>
+                </Modal>
+            </>
+        );
+    }
+
