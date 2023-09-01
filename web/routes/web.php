@@ -37,19 +37,6 @@ use Shopify\Webhooks\Topics;
 |
 */
 
-// Authentication
-// Route::fallback(function (Request $request) {
-//     if (Context::$IS_EMBEDDED_APP &&  $request->query("embedded", false) === "1") {
-//         if (env('APP_ENV') === 'production') {
-//             return file_get_contents(public_path('index.html'));
-//         } else {
-//             return file_get_contents(base_path('frontend/index.html'));
-//         }
-//     } else {
-//         return redirect(Utils::getEmbeddedAppUrl($request->query("host", null)) . "/" . $request->path());
-//     }
-// })->middleware('shopify.installed');
-
 Route::fallback(function (Request $request) {
     if (Context::$IS_EMBEDDED_APP &&  $request->query("embedded", false) === "1") {
         if (env('APP_ENV') === 'production') {
@@ -156,8 +143,8 @@ Route::get('/api/refund-modes', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    // $shop_id = "SH12345678"; // TODO : To be removed
-    $shop_id = getShopID($session);
+    $shop_id = "SH12345678"; // TODO : To be removed
+    // $shop_id = getShopID($session);
 
     $url = "https://www.mytaxfree.fr/API/_STMag/" . $shop_id;
     $response = CurlCustom::retrieve_data($url);
@@ -204,8 +191,8 @@ Route::post('/api/barcode', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    // $shop_id = "SH12345678"; // TODO : To be removed
-    $shop_id = getShopID($session);
+    $shop_id = "SH12345678"; // TODO : To be removed
+    // $shop_id = getShopID($session);
 
     $data = $request->json()->all();
 
@@ -226,8 +213,8 @@ Route::post('/api/passport/scan', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    // $shop_id = "SH12345678"; // TODO : To be removed
-    $shop_id = getShopID($session);
+    $shop_id = "SH12345678"; // TODO : To be removed
+    // $shop_id = getShopID($session);
 
     if (!$request->hasFile('file')) {
         return response()->json(['upload_file_not_found'], 400);
