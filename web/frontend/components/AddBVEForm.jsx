@@ -18,7 +18,8 @@ import { SendMajor, PrintMajor } from "@shopify/polaris-icons";
 import { useAppQuery, useAuthenticatedFetch } from "../hooks";
 import { useEffect, useState, useCallback } from "react";
 
-import DatePickerSelect from "./custom/DatePickerSelect";
+// import DatePickerSelect from "./custom/DatePickerSelect";
+import DatePickerInput from "./custom/DatePickerInput";
 
 // a function that from this date string DD-MM-YYYY, remove the dashes and return YYYYMMDD
 function formatDateFromDashes(date) {
@@ -27,7 +28,51 @@ function formatDateFromDashes(date) {
     let day = date.split("-")[0];
     let formattedDate = `${year}${month}${day}`;
 
+    if (formattedDate.includes("undefined")) return "";
     return formattedDate;
+}
+
+function mustBeCurrentDate(day, month, year) {
+    const today = new Date();
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth() + 1;
+    const todayDay = today.getDate();
+
+    if (year < todayYear || year > todayYear)
+        return [false, "La date doit être la date actuelle."];
+    else if (month < todayMonth || month > todayMonth)
+        return [false, "La date doit être la date actuelle."];
+    else if (day < todayDay || day > todayDay)
+        return [false, "La date doit être la date actuelle."];
+    else return [true, ""];
+}
+
+function mustBePastDate(day, month, year) {
+    const today = new Date();
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth() + 1;
+    const todayDay = today.getDate();
+
+    if (year > todayYear) return [false, "La date doit être dans le passé."];
+    else if (year === todayYear && month > todayMonth)
+        return [false, "La date doit être dans le passé."];
+    else if (year === todayYear && month === todayMonth && day > todayDay)
+        return [false, "La date doit être dans le passé."];
+    else return [true, ""];
+}
+
+function mustBeFutureDate(day, month, year) {
+    const today = new Date();
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth() + 1;
+    const todayDay = today.getDate();
+
+    if (year < todayYear) return [false, "La date doit être dans le futur."];
+    else if (year === todayYear && month < todayMonth)
+        return [false, "La date doit être dans le futur."];
+    else if (year === todayYear && month === todayMonth && day <= todayDay)
+        return [false, "La date doit être dans le futur."];
+    else return [true, ""];
 }
 
 export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
@@ -52,7 +97,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     };
     const [selectedNationality, setSelectedNationality] = useState("");
     const handleNationalityChange = (value) => {
-        if (!passport) { 
+        if (!passport) {
             setSelectedNationality(value);
             setFormState({ ...formState, Nationalite: value });
         }
@@ -93,11 +138,24 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
 
     // Gestions des champs du formulaire
 
-    const [selectedDateAchat, setSelectedDateAchat] = useState("");
+    // Get the current date and format it to DD-MM-YYYY
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, "0");
+    var mm = String(today.getMonth() + 1).padStart(2, "0"); //January is 0!
+    var yyyy = today.getFullYear();
+
+    const [selectedDateAchat, setSelectedDateAchat] = useState(
+        `${dd}-${mm}-${yyyy}`
+    );
     const [selectedDateValiditePasseport, setSelectedDateValiditePasseport] =
         useState("");
     const [selectedDateNaissance, setSelectedDateNaissance] = useState("");
     const [selectedDateDepart, setSelectedDateDepart] = useState("");
+
+    const [dateAchatErrorMessage, setDateAchatErrorMessage] = useState("");
+    const [dateValiditePasseportErrorMessage, setDateValiditePasseportErrorMessage] = useState("");
+    const [dateNaissanceErrorMessage, setDateNaissanceErrorMessage] = useState("");
+    const [dateDepartErrorMessage, setDateDepartErrorMessage] = useState("");
 
     useEffect(() => {
         setFormState((prevState) => ({
@@ -404,7 +462,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             "Prenom",
             // "Addresse",
             "Passeport",
-            "Messagerie",
+            // "Messagerie",
             // "Compte",
             // "Beneficiaire",
             // "Mobile",
@@ -433,8 +491,12 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                 selectedDateValiditePasseport.length === 10 &&
                 selectedDateNaissance &&
                 selectedDateNaissance.length === 10 &&
-                selectedDateDepart &&
-                selectedDateDepart.length === 10
+                // If dates error message are empty
+                dateAchatErrorMessage === "" &&
+                dateValiditePasseportErrorMessage === "" &&
+                dateNaissanceErrorMessage === ""
+                // selectedDateDepart &&
+                // selectedDateDepart.length === 10
             ) {
                 // Remove the banner
                 const errorBlock = document.getElementById("errorBlock");
@@ -442,6 +504,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
 
                 submitForm();
             } else {
+
                 // Show a banner in the error block
                 const errorBlock = document.getElementById("errorBlock");
                 errorBlock.hidden = false;
@@ -453,17 +516,20 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
 
     const hexToBinary = (hexString) => {
         hexString = hexString.replace(/[\r\n]+/gm, "");
-        hexString = hexString.replace(/\s+/g, '');
-        if (hexString.length % 2 !== 0 || hexString.match(/[0-9A-Fa-f]{1,2}/g).length !== hexString.length / 2) {
+        hexString = hexString.replace(/\s+/g, "");
+        if (
+            hexString.length % 2 !== 0 ||
+            hexString.match(/[0-9A-Fa-f]{1,2}/g).length !== hexString.length / 2
+        ) {
             throw new Error(`${hexString} is not a valid hex string.`);
         }
 
         const binary = new Uint8Array(hexString.length / 2);
         for (let i = 0; i < hexString.length; i += 2) {
-            binary[i/2] = parseInt(hexString.substr(i, 2), 16);
+            binary[i / 2] = parseInt(hexString.substr(i, 2), 16);
         }
         return binary;
-    }
+    };
 
     const handPdfClick = async () => {
         // setIsLoadingPDFButton(true);
@@ -472,7 +538,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
-            }
+            },
         });
 
         const data = await response.json();
@@ -480,10 +546,10 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
         if (data.status === "success") {
             let hexString = data.data;
             let binaryString = hexToBinary(hexString);
-            let blob = new Blob([binaryString], {type: 'application/pdf'});
+            let blob = new Blob([binaryString], { type: "application/pdf" });
             let url = window.URL.createObjectURL(blob);
 
-            let link = document.createElement('a');
+            let link = document.createElement("a");
             link.href = url;
             link.download = `${codeBarre}.pdf`;
             document.body.appendChild(link);
@@ -494,266 +560,334 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
         // setIsLoadingPDFButton(false);
     };
 
-        return (
-            <>
-                <Form onSubmit={handleSubmit}>
-                    <VerticalStack gap="2">
-                        <TextField
-                            label="Facture"
-                            placeholder="Facture"
-                            name="Facture"
-                            value={Facture}
-                            error={errors.Facture}
-                            onChange={handleFactureChange}
-                        />
+    return (
+        <>
+            <Form onSubmit={handleSubmit}>
+                <VerticalStack gap="2">
+                    <TextField
+                        label="Facture"
+                        placeholder="Facture"
+                        name="Facture"
+                        value={Facture}
+                        error={errors.Facture}
+                        onChange={handleFactureChange}
+                    />
 
-                        <Text variant="headingLg" as="h5">
-                            Date d'achat
-                        </Text>
-                        <DatePickerSelect
+                    <Text variant="headingLg" as="h5">
+                        Date d'achat
+                    </Text>
+                    {/* <DatePickerSelect
                             selectedDate={selectedDateAchat}
                             setSelectedDate={setSelectedDateAchat}
-                        />
-                        <Text>
-                            <strong>Date sélectionné :</strong> {selectedDateAchat}
-                        </Text>
+                        /> */}
+                    <DatePickerInput
+                        optionalRequirement={mustBeCurrentDate}
+                        setErrorMessage={setDateAchatErrorMessage}
+                        selectedDate={selectedDateAchat}
+                        setSelectedDate={setSelectedDateAchat}
+                    />
+                    <div
+                        style={{
+                            display:
+                                dateAchatErrorMessage === "" ? "none" : "block",
+                        }}
+                    >
+                        <Banner status="critical">
+                            {dateAchatErrorMessage}
+                        </Banner>
+                    </div>
+                    <Text>
+                        <strong>Date sélectionné :</strong> {selectedDateAchat}
+                    </Text>
 
-                        <Text variant="headingXl" as="h4">
-                            Information sur l'acheteur
-                        </Text>
+                    <Text variant="headingXl" as="h4">
+                        Information sur l'acheteur
+                    </Text>
 
-                        <TextField
-                            label="Nom"
-                            placeholder="Nom"
-                            name="Nom"
-                            value={Nom}
-                            error={errors.Nom}
-                            onChange={handleNomChange}
-                        />
-                        <TextField
-                            label="Prénom"
-                            placeholder="Prénom"
-                            name="Prenom"
-                            value={Prenom}
-                            error={errors.Prenom}
-                            onChange={handlePrenomChange}
-                        />
-                        <TextField
-                            label="Addresse"
-                            placeholder="Addresse"
-                            name="Addresse"
-                            value={Addresse}
-                            error={errors.Addresse}
-                            onChange={handleAddresseChange}
-                        />
+                    <TextField
+                        label="Nom"
+                        placeholder="Nom"
+                        name="Nom"
+                        value={Nom}
+                        error={errors.Nom}
+                        onChange={handleNomChange}
+                    />
+                    <TextField
+                        label="Prénom"
+                        placeholder="Prénom"
+                        name="Prenom"
+                        value={Prenom}
+                        error={errors.Prenom}
+                        onChange={handlePrenomChange}
+                    />
+                    <TextField
+                        label="Addresse"
+                        placeholder="Addresse"
+                        name="Addresse"
+                        value={Addresse}
+                        error={errors.Addresse}
+                        onChange={handleAddresseChange}
+                    />
 
-                        <Select
-                            label="Pays"
-                            options={countriesOptions}
-                            onChange={handleCountryChange}
-                            value={selectedCountry}
-                        />
+                    <Select
+                        label="Pays"
+                        options={countriesOptions}
+                        onChange={handleCountryChange}
+                        value={selectedCountry}
+                    />
 
-                        <Select
-                            label="Nationalité"
-                            options={nationalityOptions}
-                            onChange={handleNationalityChange}
-                            value={selectedNationality}
-                        />
+                    <Select
+                        label="Nationalité"
+                        options={nationalityOptions}
+                        onChange={handleNationalityChange}
+                        value={selectedNationality}
+                    />
 
-                        <TextField
-                            label="Passeport"
-                            placeholder="Passeport"
-                            name="Passeport"
-                            value={Passeport}
-                            error={errors.Passeport}
-                            onChange={handlePasseportChange}
-                        />
+                    <TextField
+                        label="Passeport"
+                        placeholder="Passeport"
+                        name="Passeport"
+                        value={Passeport}
+                        error={errors.Passeport}
+                        onChange={handlePasseportChange}
+                    />
 
-                        <Text variant="headingLg" as="h5">
-                            Validité de passeport
-                        </Text>
-                        <DatePickerSelect
+                    <Text variant="headingLg" as="h5">
+                        Validité de passeport
+                    </Text>
+                    {/* <DatePickerSelect
                             selectedDate={selectedDateValiditePasseport}
                             setSelectedDate={setSelectedDateValiditePasseport}
-                        />
-                        <Text>
-                            <strong>Date sélectionné :</strong>{" "}
-                            {selectedDateValiditePasseport}
-                        </Text>
+                        /> */}
+                    <DatePickerInput
+                        optionalRequirement={mustBeFutureDate}
+                        setErrorMessage={setDateValiditePasseportErrorMessage}
+                        selectedDate={selectedDateValiditePasseport}
+                        setSelectedDate={setSelectedDateValiditePasseport}
+                    />
+                    <div
+                        style={{
+                            display:
+                                dateValiditePasseportErrorMessage === ""
+                                    ? "none"
+                                    : "block",
+                        }}
+                    >
+                        <Banner status="critical">
+                            {dateValiditePasseportErrorMessage}
+                        </Banner>
+                    </div>
+                    <Text>
+                        <strong>Date sélectionné :</strong>{" "}
+                        {selectedDateValiditePasseport}
+                    </Text>
 
-                        <Text variant="headingLg" as="h5">
-                            Date de naissance
-                        </Text>
-                        <DatePickerSelect
+                    <Text variant="headingLg" as="h5">
+                        Date de naissance
+                    </Text>
+                    {/* <DatePickerSelect
                             selectedDate={selectedDateNaissance}
                             setSelectedDate={setSelectedDateNaissance}
-                        />
-                        <Text>
-                            <strong>Date sélectionné :</strong>{" "}
-                            {selectedDateNaissance}
-                        </Text>
+                        /> */}
+                    <DatePickerInput
+                        optionalRequirement={mustBePastDate}
+                        setErrorMessage={setDateNaissanceErrorMessage}
+                        selectedDate={selectedDateNaissance}
+                        setSelectedDate={setSelectedDateNaissance}
+                    />
+                    <div
+                        style={{
+                            display:
+                                dateNaissanceErrorMessage === ""
+                                    ? "none"
+                                    : "block",
+                        }}
+                    >
+                        <Banner status="critical">
+                            {dateNaissanceErrorMessage}
+                        </Banner>
+                    </div>
+                    <Text>
+                        <strong>Date sélectionné :</strong>{" "}
+                        {selectedDateNaissance}
+                    </Text>
 
-                        <TextField
-                            label="Messagerie"
-                            placeholder="Messagerie"
-                            name="Messagerie"
-                            value={Messagerie}
-                            error={errors.Messagerie}
-                            onChange={handleMessagerieChange}
-                        />
+                    <TextField
+                        label="Messagerie"
+                        placeholder="Messagerie"
+                        name="Messagerie"
+                        value={Messagerie}
+                        error={errors.Messagerie}
+                        onChange={handleMessagerieChange}
+                    />
 
-                        <Text variant="headingXl" as="h4">
-                            Règlement des achats en magasin
-                        </Text>
-                        <ChoiceList
-                            choices={[
-                                { label: "Par carte", value: "ReglCarte" },
-                                { label: "Par chèque", value: "ReglCheq" },
-                                { label: "Par cash", value: "ReglCash" },
-                                { label: "Autre", value: "ReglAutre" },
-                            ]}
-                            selected={selected}
-                            onChange={handleChoiceListChange}
-                        />
+                    <Text variant="headingXl" as="h4">
+                        Règlement des achats en magasin
+                    </Text>
+                    <ChoiceList
+                        choices={[
+                            { label: "Par carte", value: "ReglCarte" },
+                            { label: "Par chèque", value: "ReglCheq" },
+                            { label: "Par cash", value: "ReglCash" },
+                            { label: "Autre", value: "ReglAutre" },
+                        ]}
+                        selected={selected}
+                        onChange={handleChoiceListChange}
+                    />
 
-                        <Select
-                            label="Mode de remboursement"
-                            options={refundModesOptions}
-                            onChange={handleRefundModeChange}
-                            value={selectedRefundMode}
-                        />
+                    <Select
+                        label="Mode de remboursement"
+                        options={refundModesOptions}
+                        onChange={handleRefundModeChange}
+                        value={selectedRefundMode}
+                    />
 
-                        <TextField
-                            label="Compte"
-                            placeholder="Compte"
-                            name="Compte"
-                            value={Compte}
-                            error={errors.Compte}
-                            onChange={handleCompteChange}
-                        />
+                    <TextField
+                        label="Compte"
+                        placeholder="Compte"
+                        name="Compte"
+                        value={Compte}
+                        error={errors.Compte}
+                        onChange={handleCompteChange}
+                    />
 
-                        <TextField
-                            label="Beneficiaire"
-                            placeholder="Beneficiaire"
-                            name="Beneficiaire"
-                            value={Beneficiaire}
-                            error={errors.Beneficiaire}
-                            onChange={handleBeneficiaireChange}
-                        />
+                    <TextField
+                        label="Beneficiaire"
+                        placeholder="Beneficiaire"
+                        name="Beneficiaire"
+                        value={Beneficiaire}
+                        error={errors.Beneficiaire}
+                        onChange={handleBeneficiaireChange}
+                    />
 
-                        <TextField
-                            label="Mobile"
-                            placeholder="Mobile"
-                            name="Mobile"
-                            value={Mobile}
-                            error={errors.Mobile}
-                            onChange={handleMobileChange}
-                        />
+                    <TextField
+                        label="Mobile"
+                        placeholder="Mobile"
+                        name="Mobile"
+                        value={Mobile}
+                        error={errors.Mobile}
+                        onChange={handleMobileChange}
+                    />
 
-                        <Text variant="headingLg" as="h5">
-                            Date de départ
-                        </Text>
-                        <DatePickerSelect
+                    <Text variant="headingLg" as="h5">
+                        Date de départ
+                    </Text>
+                    {/* <DatePickerSelect
                             selectedDate={selectedDateDepart}
                             setSelectedDate={setSelectedDateDepart}
-                        />
-                        <Text>
-                            <strong>Date sélectionné :</strong> {selectedDateDepart}
-                        </Text>
+                        /> */}
+                    <DatePickerInput
+                        setErrorMessage={setDateDepartErrorMessage}
+                        selectedDate={selectedDateDepart}
+                        setSelectedDate={setSelectedDateDepart}
+                    />
+                    <div
+                        style={{
+                            display:
+                                dateDepartErrorMessage === ""
+                                    ? "none"
+                                    : "block",
+                        }}
+                    >
+                        <Banner status="critical">
+                            {dateDepartErrorMessage}
+                        </Banner>
+                    </div>
+                    <Text>
+                        <strong>Date sélectionné :</strong> {selectedDateDepart}
+                    </Text>
 
-                        <Text variant="headingXl" as="h4">
-                            Liste des articles
-                        </Text>
-                        <ResourceList
-                            resourceName={{
-                                singular: "article",
-                                plural: "articles",
-                            }}
-                            items={orderDetail.line_items.map((item) => {
-                                return {
-                                    id: item.id,
-                                    name: item.name,
-                                    price: item.price,
-                                    quantity: item.quantity,
-                                };
-                            })}
-                            renderItem={(item) => {
-                                const { id, name, price, quantity } = item;
-                                const media = (
-                                    <Thumbnail source="https://cdn3d.iconscout.com/3d/premium/thumb/product-5806313-4863042.png" />
-                                );
-                                return (
-                                    <ResourceList.Item
-                                        id={id}
-                                        media={media}
-                                        accessibilityLabel={`Détails de l'article ${name}`}
-                                    >
-                                        <h3>
-                                            <TextStyle variation="strong">
-                                                {name}
-                                            </TextStyle>
-                                        </h3>
-                                        <div>
-                                            {quantity} x {price} €
-                                        </div>
-                                    </ResourceList.Item>
-                                );
-                            }}
-                        />
+                    <Text variant="headingXl" as="h4">
+                        Liste des articles
+                    </Text>
+                    <ResourceList
+                        resourceName={{
+                            singular: "article",
+                            plural: "articles",
+                        }}
+                        items={orderDetail.line_items.map((item) => {
+                            return {
+                                id: item.id,
+                                name: item.name,
+                                price: item.price,
+                                quantity: item.quantity,
+                            };
+                        })}
+                        renderItem={(item) => {
+                            const { id, name, price, quantity } = item;
+                            const media = (
+                                <Thumbnail source="https://cdn3d.iconscout.com/3d/premium/thumb/product-5806313-4863042.png" />
+                            );
+                            return (
+                                <ResourceList.Item
+                                    id={id}
+                                    media={media}
+                                    accessibilityLabel={`Détails de l'article ${name}`}
+                                >
+                                    <h3>
+                                        <TextStyle variation="strong">
+                                            {name}
+                                        </TextStyle>
+                                    </h3>
+                                    <div>
+                                        {quantity} x {price} €
+                                    </div>
+                                </ResourceList.Item>
+                            );
+                        }}
+                    />
 
-                        <div id="errorBlock" hidden>
-                            <Banner status="critical">
-                                <p id="errorBlockContent"></p>
-                            </Banner>
-                        </div>
+                    <div id="errorBlock" hidden>
+                        <Banner status="critical">
+                            <p id="errorBlockContent"></p>
+                        </Banner>
+                    </div>
 
-                        <Button
-                            submit
-                            icon={SendMajor}
-                            loading={isButtonLoading}
-                            primary={true}
-                        >
-                            Générer la détaxe
-                        </Button>
-                    </VerticalStack>
-                </Form>
+                    <Button
+                        submit
+                        icon={SendMajor}
+                        loading={isButtonLoading}
+                        primary={true}
+                    >
+                        Générer la détaxe
+                    </Button>
+                </VerticalStack>
+            </Form>
 
-                {/* Succès */}
-                <Modal
-                    open={isSuccessModalOpen}
-                    onClose={() => setIsSuccessModalOpen(false)}
-                    title="Ajout BVE réussi"
-                    primaryAction={{
-                        // loading: {isLoadingPDFButton},
-                        icon: PrintMajor,
-                        content: "Télécharger le PDF de la détaxe",
-                        onAction: () => handPdfClick(),
-                    }}
-                >
-                    <Modal.Section>
-                        <TextContainer>
-                            <p
-                                dangerouslySetInnerHTML={{ __html: successData }}
-                            ></p>
-                        </TextContainer>
-                    </Modal.Section>
-                </Modal>
+            {/* Succès */}
+            <Modal
+                open={isSuccessModalOpen}
+                onClose={() => setIsSuccessModalOpen(false)}
+                title="Ajout BVE réussi"
+                primaryAction={{
+                    // loading: {isLoadingPDFButton},
+                    icon: PrintMajor,
+                    content: "Télécharger le PDF de la détaxe",
+                    onAction: () => handPdfClick(),
+                }}
+            >
+                <Modal.Section>
+                    <TextContainer>
+                        <p
+                            dangerouslySetInnerHTML={{ __html: successData }}
+                        ></p>
+                    </TextContainer>
+                </Modal.Section>
+            </Modal>
 
-                {/* Erreur */}
-                <Modal
-                    open={isErrorModalOpen}
-                    onClose={() => setIsErrorModalOpen(false)}
-                    title="Erreur"
-                    backdrop="static" // Add this line to disable the modal backdrop
-                >
-                    <Modal.Section>
-                        <TextContainer>
-                            <p dangerouslySetInnerHTML={{ __html: errorData }}></p>
-                        </TextContainer>
-                    </Modal.Section>
-                </Modal>
-            </>
-        );
-    }
-
+            {/* Erreur */}
+            <Modal
+                open={isErrorModalOpen}
+                onClose={() => setIsErrorModalOpen(false)}
+                title="Erreur"
+                backdrop="static" // Add this line to disable the modal backdrop
+            >
+                <Modal.Section>
+                    <TextContainer>
+                        <p dangerouslySetInnerHTML={{ __html: errorData }}></p>
+                    </TextContainer>
+                </Modal.Section>
+            </Modal>
+        </>
+    );
+}
