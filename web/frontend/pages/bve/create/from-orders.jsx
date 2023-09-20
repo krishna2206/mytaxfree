@@ -17,7 +17,7 @@ import { Redirect } from "@shopify/app-bridge/actions";
 export default function CreateBveFromOrders() {
     const fetch = useAuthenticatedFetch();
 
-    const passport = JSON.parse(localStorage.getItem("passport"));
+    const [passport, setPassport] = useState(null);
 
     const [selectedOrder, setSelectedOrder] = useState(null);
     const handleOrderChange = useCallback((value) => {

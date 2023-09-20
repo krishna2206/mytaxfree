@@ -17,7 +17,24 @@ import { Redirect } from "@shopify/app-bridge/actions";
 export default function CreateBveFromPassport() {
     const fetch = useAuthenticatedFetch();
 
-    const passport = JSON.parse(localStorage.getItem("passport"));
+    // Initialize the passport state
+    const [passport, setPassport] = useState(null);
+
+    // Fetch the passport data when the component mounts
+    useEffect(() => {
+        fetch("/api/passport/get", {
+            method: "GET",
+            credentials: "include", // Include credentials (session ID) in the request
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                // Update the passport state with the returned data
+                setPassport(data);
+            })
+            .catch((error) => {
+                // Handle the error
+            });
+    }, [fetch]); // Dependency array
 
     const [selectedOrder, setSelectedOrder] = useState(null);
     const handleOrderChange = useCallback((value) => {

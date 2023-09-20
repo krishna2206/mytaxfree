@@ -108,6 +108,7 @@ export default function ScanPassport() {
             fetch("/api/passport/scan", {
                 method: "POST",
                 body: formData,
+                credentials: 'include', // To ensure cookies are sent with the request
             })
                 .then((response) => {
                     if (response.ok) {
@@ -145,13 +146,12 @@ export default function ScanPassport() {
                         setScanStatus("error");
                         setModalContent("Passeport invalide ou illisible");
 
-                        localStorage.setItem("passport", null);
+                        // No need to clear passport data in localStorage
                     } else {
                         setScanStatus("success");
                         setModalContent(JSON.stringify(response_data, null, 4));
 
-                        // ? Save passport data in localStorage to get in the form
-                        localStorage.setItem("passport", JSON.stringify(response_data));
+                        // No need to save passport data in localStorage
                     }
 
                     setIsModalOpen(true);
@@ -162,12 +162,13 @@ export default function ScanPassport() {
                     setIsModalOpen(true);
                     setIsLoading(false);
 
-                    localStorage.setItem("passport", null);
+                    // No need to clear passport data in localStorage
                 });
         } else {
             console.log("No file selected");
         }
     };
+
 
     return (
         <>

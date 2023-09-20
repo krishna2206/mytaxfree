@@ -143,8 +143,8 @@ Route::get('/api/refund-modes', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = "SH12345678"; // TODO : To be removed
-    // $shop_id = getShopID($session);
+    // $shop_id = "SH12345678"; // TODO : To be removed
+    $shop_id = getShopID($session);
 
     $url = "https://www.mytaxfree.fr/API/_STMag/" . $shop_id;
     $response = CurlCustom::retrieve_data($url);
@@ -191,8 +191,8 @@ Route::post('/api/barcode', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = "SH12345678"; // TODO : To be removed
-    // $shop_id = getShopID($session);
+    // $shop_id = "SH12345678"; // TODO : To be removed
+    $shop_id = getShopID($session);
 
     $data = $request->json()->all();
 
@@ -209,12 +209,17 @@ Route::post('/api/set-operation-status', function (Request $request) {
     return $response;
 });
 
+Route::get('/api/passport/get', function(Request $request) {
+    $passport = Session::get('passport');
+    return response()->json($passport);
+});
+
 Route::post('/api/passport/scan', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = "SH12345678"; // TODO : To be removed
-    // $shop_id = getShopID($session);
+    // $shop_id = "SH12345678"; // TODO : To be removed
+    $shop_id = getShopID($session);
 
     if (!$request->hasFile('file')) {
         return response()->json(['upload_file_not_found'], 400);
@@ -242,8 +247,18 @@ Route::post('/api/passport/scan', function (Request $request) {
 
     $response = CurlCustom::scan_passport($fileNameWithoutExt, $shop_id);
 
+    // Check if there's an error
+    if (array_key_exists('error', $response)) {
+        // Clear passport data from the session
+        Session::put('passport', null);
+    } else {
+        // Save passport data in the session
+        Session::put('passport', $response);
+    }
+
     return response()->json($response);
 })->middleware('shopify.auth');
+
 
 Route::get('/api/shop', function (Request $request) {
     /** @var AuthSession */
