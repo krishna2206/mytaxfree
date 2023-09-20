@@ -143,8 +143,8 @@ Route::get('/api/refund-modes', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = "SH12345678"; // TODO : To be removed
-    // $shop_id = getShopID($session);
+    // $shop_id = "SH12345678"; // TODO : To be removed
+    $shop_id = getShopID($session);
 
     $url = "https://www.mytaxfree.fr/API/_STMag/" . $shop_id;
     $response = CurlCustom::retrieve_data($url);
@@ -191,8 +191,8 @@ Route::post('/api/barcode', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = "SH12345678"; // TODO : To be removed
-    // $shop_id = getShopID($session);
+    // $shop_id = "SH12345678"; // TODO : To be removed
+    $shop_id = getShopID($session);
 
     $data = $request->json()->all();
 
@@ -218,8 +218,8 @@ Route::post('/api/passport/scan', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = "SH12345678"; // TODO : To be removed
-    // $shop_id = getShopID($session);
+    // $shop_id = "SH12345678"; // TODO : To be removed
+    $shop_id = getShopID($session);
 
     if (!$request->hasFile('file')) {
         return response()->json(['upload_file_not_found'], 400);
