@@ -16,10 +16,14 @@ import {
 import { SendMajor, PrintMajor } from "@shopify/polaris-icons";
 
 import { useAppQuery, useAuthenticatedFetch } from "../hooks";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useContext } from "react";
+// import { useRouter } from 'next/router';
 
 // import DatePickerSelect from "./custom/DatePickerSelect";
 import DatePickerInput from "./custom/DatePickerInput";
+import { useRouter } from "@shopify/app-bridge-react/components/Provider/Provider";
+import { Redirect } from "@shopify/app-bridge/actions";
+import { Context } from "@shopify/app-bridge-react";
 
 // a function that from this date string DD-MM-YYYY, remove the dashes and return YYYYMMDD
 function formatDateFromDashes(date) {
@@ -77,6 +81,7 @@ function mustBeFutureDate(day, month, year) {
 
 export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     const fetch = useAuthenticatedFetch();
+    const app = useContext(Context);
 
     // const [isLoadingPDFButton, setIsLoadingPDFButton] = useState(false);
 
@@ -104,6 +109,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     };
 
     if (countriesStatus === "success") {
+        countries.Pays.sort((a, b) => a.NomPays.localeCompare(b.NomPays));
         countries.Pays.forEach((country) => {
             countriesOptions.push({
                 label: country.NomPays,
@@ -423,14 +429,19 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             const secondStatusCode = secondData.status_code;
 
             if (secondStatusCode === 200) {
-                setCodeBarre(responseData);
-                setSuccessData(
-                    "Code barre obtenu : " +
-                        responseData +
-                        ".<br />Le BVE a été ajouté avec succès.<br />" +
-                        secondResponseData
-                );
-                setIsSuccessModalOpen(true);
+                if (responseData == "") {
+                    setErrorData("Un erreur est survenue lors de la création de la détaxe. Impossible de récupérer le code barre.")
+                    setIsErrorModalOpen(true);
+                } else {
+                    setCodeBarre(responseData);
+                    setSuccessData(
+                        "Code barre obtenu : " +
+                            responseData +
+                            ".<br />Le BVE a été ajouté avec succès.<br />" +
+                            secondResponseData
+                    );
+                    setIsSuccessModalOpen(true);
+                }
             } else {
                 if (secondResponseData) {
                     setErrorData(secondResponseData);
@@ -555,6 +566,9 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+
+            const redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, `/`);
         }
 
         // setIsLoadingPDFButton(false);
@@ -596,9 +610,9 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                             {dateAchatErrorMessage}
                         </Banner>
                     </div>
-                    <Text>
+                    {/* <Text>
                         <strong>Date sélectionné :</strong> {selectedDateAchat}
-                    </Text>
+                    </Text> */}
 
                     <Text variant="headingXl" as="h4">
                         Information sur l'acheteur
@@ -677,10 +691,10 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                             {dateValiditePasseportErrorMessage}
                         </Banner>
                     </div>
-                    <Text>
+                    {/* <Text>
                         <strong>Date sélectionné :</strong>{" "}
                         {selectedDateValiditePasseport}
-                    </Text>
+                    </Text> */}
 
                     <Text variant="headingLg" as="h5">
                         Date de naissance
@@ -707,10 +721,10 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                             {dateNaissanceErrorMessage}
                         </Banner>
                     </div>
-                    <Text>
+                    {/* <Text>
                         <strong>Date sélectionné :</strong>{" "}
                         {selectedDateNaissance}
-                    </Text>
+                    </Text> */}
 
                     <TextField
                         label="Messagerie"
@@ -793,9 +807,9 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                             {dateDepartErrorMessage}
                         </Banner>
                     </div>
-                    <Text>
+                    {/* <Text>
                         <strong>Date sélectionné :</strong> {selectedDateDepart}
-                    </Text>
+                    </Text> */}
 
                     <Text variant="headingXl" as="h4">
                         Liste des articles
@@ -857,7 +871,11 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             {/* Succès */}
             <Modal
                 open={isSuccessModalOpen}
-                onClose={() => setIsSuccessModalOpen(false)}
+                onClose={() => {
+                    setIsSuccessModalOpen(false);
+                    const redirect = Redirect.create(app);
+                    redirect.dispatch(Redirect.Action.APP, `/`);
+                }}
                 title="Ajout BVE réussi"
                 primaryAction={{
                     // loading: {isLoadingPDFButton},
@@ -884,7 +902,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             >
                 <Modal.Section>
                     <TextContainer>
-                        <p dangerouslySetInnerHTML={{ __html: errorData }}></p>
+                        <p dangerouslySetInnerHTML={{ __html: JSON.stringify(errorData) }}></p>
                     </TextContainer>
                 </Modal.Section>
             </Modal>

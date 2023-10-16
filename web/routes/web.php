@@ -143,7 +143,6 @@ Route::get('/api/refund-modes', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    // $shop_id = "SH12345678"; // TODO : To be removed
     $shop_id = getShopID($session);
 
     $url = "https://www.mytaxfree.fr/API/_STMag/" . $shop_id;
@@ -152,19 +151,25 @@ Route::get('/api/refund-modes', function (Request $request) {
 })->middleware('shopify.auth');
 
 Route::get('/api/bve/show', function (Request $request) {
-    $barcode = $request->input("barcode");
-    if ($barcode) {
-        $bve_data = CurlCustom::get_bve($barcode, "SH12345678")['response_data'];
-        dd($bve_data);
-    }
-    $bves = CurlCustom::get_BVEs("SH12345678")["response_data"]["BVE"] ?? [];
+    // $barcode = $request->input("barcode");
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    $shop_id = getShopID($session);
+
+    $bves = CurlCustom::get_BVEs($shop_id)["response_data"]["BVE"] ?? [];
     return Response()->json($bves);
-});
+})->middleware('shopify.auth');
 
 Route::get('/api/bve/show/{codebarre}', function (Request $request, $codebarre) {
-    $bve_data = CurlCustom::get_bve($codebarre, "SH12345678")['response_data'];
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    $shop_id = getShopID($session);
+
+    $bve_data = CurlCustom::get_bve($codebarre, $shop_id)['response_data'];
     return Response()->json($bve_data);
-});
+})->middleware('shopify.auth');
 
 Route::get('/api/bve/generatepdf/{codebarre}', function ($codebarre) {
     $response = CurlCustom::generer_pdf($codebarre);
@@ -191,7 +196,6 @@ Route::post('/api/barcode', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    // $shop_id = "SH12345678"; // TODO : To be removed
     $shop_id = getShopID($session);
 
     $data = $request->json()->all();
@@ -218,7 +222,6 @@ Route::post('/api/passport/scan', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    // $shop_id = "SH12345678"; // TODO : To be removed
     $shop_id = getShopID($session);
 
     if (!$request->hasFile('file')) {
