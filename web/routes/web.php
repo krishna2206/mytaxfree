@@ -2,7 +2,7 @@
 
 use App\Exceptions\ShopifyProductCreatorException;
 use App\Lib\AuthRedirection;
-use App\Lib\CurlCustom;
+use App\Lib\DetaxeApiClient;
 use App\Lib\EnsureBilling;
 use App\Lib\ProductCreator;
 use App\Lib\SFTPClient;
@@ -22,6 +22,7 @@ use Shopify\Exception\InvalidWebhookException;
 use Shopify\Utils;
 use Shopify\Webhooks\Registry;
 use Shopify\Webhooks\Topics;
+use Intervention\Image\Facades\Image;
 
 /*
 |--------------------------------------------------------------------------
@@ -135,7 +136,7 @@ Route::get('/api/orders/{id}', function (Request $request, $id) {
 // App specific routes
 Route::get('/api/countries', function () {
     $url = "https://www.mytaxfree.fr/API/_STPays/2023";
-    $response = CurlCustom::retrieve_data($url);
+    $response = DetaxeApiClient::retrieve_data($url);
     return $response["response_data"];
 });
 
@@ -146,7 +147,7 @@ Route::get('/api/refund-modes', function (Request $request) {
     $shop_id = getShopID($session);
 
     $url = "https://www.mytaxfree.fr/API/_STMag/" . $shop_id;
-    $response = CurlCustom::retrieve_data($url);
+    $response = DetaxeApiClient::retrieve_data($url);
     return $response["response_data"];
 })->middleware('shopify.auth');
 
@@ -157,7 +158,7 @@ Route::get('/api/bve/show', function (Request $request) {
 
     $shop_id = getShopID($session);
 
-    $bves = CurlCustom::get_BVEs($shop_id)["response_data"]["BVE"] ?? [];
+    $bves = DetaxeApiClient::get_bve_list($shop_id)["response_data"]["BVE"] ?? [];
     return Response()->json($bves);
 })->middleware('shopify.auth');
 
@@ -167,12 +168,22 @@ Route::get('/api/bve/show/{codebarre}', function (Request $request, $codebarre) 
 
     $shop_id = getShopID($session);
 
-    $bve_data = CurlCustom::get_bve($codebarre, $shop_id)['response_data'];
+    $bve_data = DetaxeApiClient::get_bve($codebarre, $shop_id)['response_data'];
+    return Response()->json($bve_data);
+})->middleware('shopify.auth');
+
+Route::delete('/api/bve/{codebarre}', function (Request $request, $codebarre) {
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    $shop_id = getShopID($session);
+
+    $bve_data = DetaxeApiClient::delete_bve($codebarre, $shop_id);
     return Response()->json($bve_data);
 })->middleware('shopify.auth');
 
 Route::get('/api/bve/generatepdf/{codebarre}', function ($codebarre) {
-    $response = CurlCustom::generer_pdf($codebarre);
+    $response = DetaxeApiClient::generate_bve_pdf($codebarre);
 
     $status_code = $response["status_code"];
 
@@ -200,7 +211,7 @@ Route::post('/api/barcode', function (Request $request) {
 
     $data = $request->json()->all();
 
-    $response = CurlCustom::generate_bar_code($data, $shop_id);
+    $response = DetaxeApiClient::generate_bar_code($data, $shop_id);
     return $response;
 })->middleware('shopify.auth');
 
@@ -209,7 +220,7 @@ Route::post('/api/set-operation-status', function (Request $request) {
     $barCode = $data['Codebarre'];
     $status = $data['Status'];
 
-    $response = CurlCustom::set_operation_status($barCode, $status);
+    $response = DetaxeApiClient::set_operation_status($barCode, $status);
     return $response;
 });
 
@@ -233,12 +244,39 @@ Route::post('/api/passport/scan', function (Request $request) {
         return response()->json(['invalid_file_upload'], 400);
     }
 
+    /* ! OLD
+
+        $file = $request->file('file');
+        if (!$file->isValid()) {
+            return response()->json(['invalid_file_upload'], 400);
+        }
+
+        $date = date('YmdHisv');
+        $extension = '.' . $file->getClientOriginalExtension();
+        $filename = $shop_id . '-' . $date . $extension;
+
+        $path = public_path() . '/uploads/passports/';
+        $file->move($path, $filename);
+
+    */
+
+    // Create an instance of the image from the uploaded file
+    $image = Image::make($file->path());
+
+    // Correct the orientation
+    $image->orientate();
+
+    // Resize and compress the image
+    $image->resize(800, null, function ($constraint) {
+        $constraint->aspectRatio();
+    })->encode('jpg', 100);
+
     $date = date('YmdHisv');
-    $extension = '.' . $file->getClientOriginalExtension();
+    $extension = '.jpg'; // We are saving the file as a .jpg after compression
     $filename = $shop_id . '-' . $date . $extension;
 
     $path = public_path() . '/uploads/passports/';
-    $file->move($path, $filename);
+    $image->save($path . $filename);
 
     $localFile = $path . $filename;
     $remoteFile = '/' . $filename;
@@ -248,7 +286,7 @@ Route::post('/api/passport/scan', function (Request $request) {
 
     $fileNameWithoutExt = pathinfo($filename, PATHINFO_FILENAME);
 
-    $response = CurlCustom::scan_passport($fileNameWithoutExt, $shop_id);
+    $response = DetaxeApiClient::scan_passport($fileNameWithoutExt, $shop_id);
 
     // Check if there's an error
     if (array_key_exists('error', $response)) {

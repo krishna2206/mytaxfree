@@ -4,7 +4,7 @@ import {
     Grid,
 } from "@shopify/polaris";
 import { Context, TitleBar } from "@shopify/app-bridge-react";
-import { StoryCard } from "../../../components/StoryCard";
+import { BVEList } from "../../../components/BVEList";
 import { Redirect } from "@shopify/app-bridge/actions";
 import { useContext } from "react";
 
@@ -30,7 +30,7 @@ export default function BveList() {
                 >
                     <Layout>
                         <Layout.Section>
-                            <StoryCard></StoryCard>
+                            <BVEList></BVEList>
                         </Layout.Section>
                     </Layout>
                 </Grid.Cell>

@@ -2,7 +2,7 @@
 
 namespace App\Lib;
 
-class CurlCustom
+class DetaxeApiClient
 {
     /**
      * Does a curl call and gets data
@@ -95,7 +95,7 @@ class CurlCustom
         ];
     }
 
-    public static function get_BVEs($docid)
+    public static function get_bve_list($docid)
     {
         $curl = curl_init();
         curl_setopt_array($curl, array(
@@ -151,7 +151,7 @@ class CurlCustom
         ];
     }
 
-    public static function generer_pdf($barcode)
+    public static function generate_bve_pdf($barcode)
     {
         $curl = curl_init();
         curl_setopt_array($curl, array(
@@ -209,6 +209,32 @@ class CurlCustom
                 "status_code" => curl_getinfo($curl, CURLINFO_HTTP_CODE)
             ];
         }
+
+        return [
+            "response_data" => json_decode($response, true),
+            "status_code" => curl_getinfo($curl, CURLINFO_HTTP_CODE)
+        ];
+    }
+
+    public static function delete_bve($barcode, $shop_id) {
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => "https://www.mytaxfree.fr/API/_STBve/" . $shop_id,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'DELETE',
+            CURLOPT_POSTFIELDS => json_encode(["DocID" => $barcode]),
+            CURLOPT_HTTPHEADER => array(
+                'X-External-Agent-Code: MyTaxFree',
+                'Authorization: Bearer 4$hopify$'
+            ),
+        ));
+        $response = curl_exec($curl);
+        curl_close($curl);
 
         return [
             "response_data" => json_decode($response, true),

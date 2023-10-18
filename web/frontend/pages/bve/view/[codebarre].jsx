@@ -10,7 +10,7 @@ import {
     Stack,
     Text,
 } from "@shopify/polaris";
-import { PrintMajor } from "@shopify/polaris-icons";
+import { PrintMajor, DeleteMajor } from "@shopify/polaris-icons";
 import { useAppQuery, useAuthenticatedFetch } from "../../../hooks";
 import { Context, TitleBar } from "@shopify/app-bridge-react";
 import { Redirect } from "@shopify/app-bridge/actions";
@@ -34,7 +34,10 @@ export default function BVEPage() {
             instant
         >
             <Modal.Section>
-                <p>Une erreur est survenue lors du téléchargement du PDF de la détaxe</p>
+                <p>
+                    Une erreur est survenue lors du téléchargement du PDF de la
+                    détaxe
+                </p>
             </Modal.Section>
         </Modal>
     );
@@ -59,8 +62,8 @@ export default function BVEPage() {
 
     if (isloading_bve) {
         return (
-            <div style={{padding: "20px"}}>
-                <SkeletonBodyText lines={7}/>
+            <div style={{ padding: "20px" }}>
+                <SkeletonBodyText lines={7} />
             </div>
         );
     }
@@ -80,18 +83,21 @@ export default function BVEPage() {
         // Remove all \r and \n in the string
         hexString = hexString.replace(/[\r\n]+/gm, "");
         // Strip white space from the string
-        hexString = hexString.replace(/\s+/g, '');
+        hexString = hexString.replace(/\s+/g, "");
         // Ensure that the hexString is valid
-        if (hexString.length % 2 !== 0 || hexString.match(/[0-9A-Fa-f]{1,2}/g).length !== hexString.length / 2) {
+        if (
+            hexString.length % 2 !== 0 ||
+            hexString.match(/[0-9A-Fa-f]{1,2}/g).length !== hexString.length / 2
+        ) {
             throw new Error(`${hexString} is not a valid hex string.`);
         }
 
         const binary = new Uint8Array(hexString.length / 2);
         for (let i = 0; i < hexString.length; i += 2) {
-            binary[i/2] = parseInt(hexString.substr(i, 2), 16);
+            binary[i / 2] = parseInt(hexString.substr(i, 2), 16);
         }
         return binary;
-    }
+    };
 
     const handPdfClick = async () => {
         setIsLoadingButton(true);
@@ -100,7 +106,7 @@ export default function BVEPage() {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
-            }
+            },
         });
 
         const data = await response.json();
@@ -108,21 +114,72 @@ export default function BVEPage() {
         if (data.status === "success") {
             let hexString = data.data;
             let binaryString = hexToBinary(hexString);
-            let blob = new Blob([binaryString], {type: 'application/pdf'});
+            let blob = new Blob([binaryString], { type: "application/pdf" });
             let url = window.URL.createObjectURL(blob);
 
-            let link = document.createElement('a');
+            let link = document.createElement("a");
             link.href = url;
             link.download = `${codebarre}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-        }
-        else {
+        } else {
             openModal();
         }
 
         setIsLoadingButton(false);
+    };
+
+    const [activeDeleteModal, setActiveDeleteModal] = useState(false);
+    const openDeleteModal = useCallback(() => {
+        setActiveDeleteModal(true);
+    }, []);
+    const handleCloseDeleteModal = useCallback(
+        () => setActiveDeleteModal(false),
+        []
+    );
+
+    const deleteModal = (
+        <Modal
+            title="Confirmation"
+            open={activeDeleteModal}
+            onClose={handleCloseDeleteModal}
+            instant
+        >
+            <Modal.Section>
+                <p>Etes-vous sûr de vouloir supprimer ce BVE ?</p>
+                <Button onClick={handleDelete}>Oui</Button>
+                <Button onClick={handleCloseDeleteModal}>Non</Button>
+            </Modal.Section>
+        </Modal>
+    );
+
+    const handleDelete = async () => {
+        try {
+            const response = await fetch(`/api/bve/${codebarre}`, {
+                method: "DELETE",
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.status_code !== 200) {
+                throw new Error(`Server error! status: ${data.status_code}`);
+            }
+
+            // Show success message
+            // Close the modal
+            handleCloseDeleteModal();
+        } catch (error) {
+            console.error(
+                "There was a problem with the fetch operation: ",
+                error
+            );
+            // Show error message
+        }
     };
 
     return (
@@ -140,8 +197,14 @@ export default function BVEPage() {
                     },
                 ]}
             />
-            <div style={{padding: "20px"}}>
-                <div style={{padding: "20px 0px 20px 0px"}}>
+            <div style={{ padding: "20px" }}>
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        padding: "20px 0px 20px 0px",
+                    }}
+                >
                     <Button
                         icon={PrintMajor}
                         onClick={() => handPdfClick()}
@@ -150,23 +213,38 @@ export default function BVEPage() {
                     >
                         Télécharger le PDF de la détaxe
                     </Button>
+                    {(bve.Douanes == 0 || bve.Douanes == "0") && (
+                        <Button
+                            icon={DeleteMajor}
+                            onClick={openDeleteModal}
+                            destructive={true}
+                        >
+                            Supprimer
+                        </Button>
+                    )}
                 </div>
+
                 <Card title="Détails du BVE">
                     <Card.Section>
                         <Layout>
                             <Layout.Section>
                                 {responseModal}
+                                {deleteModal}
 
                                 <Stack vertical>
                                     <Text>CodeBarre: {bve.CodeBarre}</Text>
                                     <Text>Facture: {bve.Facture}</Text>
-                                    <Text>AchatLe: {formatDate(bve.AchatLe)}</Text>
+                                    <Text>
+                                        AchatLe: {formatDate(bve.AchatLe)}
+                                    </Text>
                                     <Text>Nom: {bve.Nom}</Text>
                                     <Text>Prénom: {bve.Prenom}</Text>
                                     <Text>Adresse: {bve.Adresse}</Text>
                                     <Text>Pays: {bve.Pays}</Text>
                                     <Text>Passeport: {bve.Passeport}</Text>
-                                    <Text>PassportValid: {bve.PassportValid}</Text>
+                                    <Text>
+                                        PassportValid: {bve.PassportValid}
+                                    </Text>
                                     <Text>Nationalité: {bve.Nationalite}</Text>
                                     <Text>
                                         ReglCarte: {bve.ReglCarte?.toString()}

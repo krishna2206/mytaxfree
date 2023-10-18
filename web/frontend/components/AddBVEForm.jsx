@@ -21,7 +21,6 @@ import { useEffect, useState, useCallback, useContext } from "react";
 
 // import DatePickerSelect from "./custom/DatePickerSelect";
 import DatePickerInput from "./custom/DatePickerInput";
-import { useRouter } from "@shopify/app-bridge-react/components/Provider/Provider";
 import { Redirect } from "@shopify/app-bridge/actions";
 import { Context } from "@shopify/app-bridge-react";
 
@@ -590,10 +589,6 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                     <Text variant="headingLg" as="h5">
                         Date d'achat
                     </Text>
-                    {/* <DatePickerSelect
-                            selectedDate={selectedDateAchat}
-                            setSelectedDate={setSelectedDateAchat}
-                        /> */}
                     <DatePickerInput
                         optionalRequirement={mustBeCurrentDate}
                         setErrorMessage={setDateAchatErrorMessage}
@@ -610,9 +605,6 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                             {dateAchatErrorMessage}
                         </Banner>
                     </div>
-                    {/* <Text>
-                        <strong>Date sélectionné :</strong> {selectedDateAchat}
-                    </Text> */}
 
                     <Text variant="headingXl" as="h4">
                         Information sur l'acheteur
@@ -669,10 +661,6 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                     <Text variant="headingLg" as="h5">
                         Validité de passeport
                     </Text>
-                    {/* <DatePickerSelect
-                            selectedDate={selectedDateValiditePasseport}
-                            setSelectedDate={setSelectedDateValiditePasseport}
-                        /> */}
                     <DatePickerInput
                         optionalRequirement={mustBeFutureDate}
                         setErrorMessage={setDateValiditePasseportErrorMessage}
@@ -691,18 +679,10 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                             {dateValiditePasseportErrorMessage}
                         </Banner>
                     </div>
-                    {/* <Text>
-                        <strong>Date sélectionné :</strong>{" "}
-                        {selectedDateValiditePasseport}
-                    </Text> */}
 
                     <Text variant="headingLg" as="h5">
                         Date de naissance
                     </Text>
-                    {/* <DatePickerSelect
-                            selectedDate={selectedDateNaissance}
-                            setSelectedDate={setSelectedDateNaissance}
-                        /> */}
                     <DatePickerInput
                         optionalRequirement={mustBePastDate}
                         setErrorMessage={setDateNaissanceErrorMessage}
@@ -721,10 +701,6 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                             {dateNaissanceErrorMessage}
                         </Banner>
                     </div>
-                    {/* <Text>
-                        <strong>Date sélectionné :</strong>{" "}
-                        {selectedDateNaissance}
-                    </Text> */}
 
                     <TextField
                         label="Messagerie"
@@ -786,10 +762,6 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                     <Text variant="headingLg" as="h5">
                         Date de départ
                     </Text>
-                    {/* <DatePickerSelect
-                            selectedDate={selectedDateDepart}
-                            setSelectedDate={setSelectedDateDepart}
-                        /> */}
                     <DatePickerInput
                         setErrorMessage={setDateDepartErrorMessage}
                         selectedDate={selectedDateDepart}
@@ -807,9 +779,6 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                             {dateDepartErrorMessage}
                         </Banner>
                     </div>
-                    {/* <Text>
-                        <strong>Date sélectionné :</strong> {selectedDateDepart}
-                    </Text> */}
 
                     <Text variant="headingXl" as="h4">
                         Liste des articles
