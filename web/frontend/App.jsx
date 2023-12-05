@@ -3,7 +3,9 @@ import { BrowserRouter } from 'react-router-dom';
 import Routes from './Routes';
 
 import { AppBridgeProvider, QueryProvider, PolarisProvider } from './components';
-import Verification from './Verification';
+// App.jsx
+import MyTaxFreeProvider, { MyTaxFreeContext } from './components/providers/MyTaxFreeProvider';
+
 
 export default function App() {
     const pages = import.meta.globEager('./pages/**/!(*.test.[jt]sx)*.([jt]sx)');
@@ -13,9 +15,9 @@ export default function App() {
             <BrowserRouter>
                 <AppBridgeProvider>
                     <QueryProvider>
-                        <Verification>
+                        <MyTaxFreeProvider>
                             <Routes pages={pages} />
-                        </Verification>
+                        </MyTaxFreeProvider>
                     </QueryProvider>
                 </AppBridgeProvider>
             </BrowserRouter>

@@ -1,31 +1,201 @@
 import { useParams } from "react-router-dom";
-
 import React, { useCallback, useContext, useState } from "react";
-import {
-    Button,
-    Card,
-    Layout,
-    Modal,
-    SkeletonBodyText,
-    Stack,
-    Text,
-} from "@shopify/polaris";
+
+import { Button, Card, Layout, Modal, SkeletonBodyText, Spinner, Stack, Text, TextContainer, Toast, Frame } from "@shopify/polaris";
 import { PrintMajor, DeleteMajor } from "@shopify/polaris-icons";
-import { useAppQuery, useAuthenticatedFetch } from "../../../hooks";
-import { Context, TitleBar } from "@shopify/app-bridge-react";
 import { Redirect } from "@shopify/app-bridge/actions";
+import { isShopifyPOS } from "@shopify/app-bridge/utilities";
+import { Context, TitleBar } from "@shopify/app-bridge-react";
+
+import { useAppQuery, useAuthenticatedFetch } from "../../../hooks";
+import { MyTaxFreeContext } from "../../../components/providers/MyTaxFreeProvider";
+
+const formatDate = (dateString) => {
+    if (dateString) {
+        const year = dateString.slice(0, 4);
+        const month = dateString.slice(4, 6);
+        const day = dateString.slice(6, 8);
+        return `${day}-${month}-${year}`;
+    }
+    return "";
+};
+
+const hexToBinary = (hexString) => {
+    // Remove all \r and \n in the string
+    hexString = hexString.replace(/[\r\n]+/gm, "");
+    // Strip white space from the string
+    hexString = hexString.replace(/\s+/g, "");
+    // Ensure that the hexString is valid
+    if (
+        hexString.length % 2 !== 0 ||
+        hexString.match(/[0-9A-Fa-f]{1,2}/g).length !== hexString.length / 2
+    ) {
+        throw new Error(`${hexString} is not a valid hex string.`);
+    }
+
+    const binary = new Uint8Array(hexString.length / 2);
+    for (let i = 0; i < hexString.length; i += 2) {
+        binary[i / 2] = parseInt(hexString.substr(i, 2), 16);
+    }
+    return binary;
+};
 
 export default function BVEPage() {
     const { codebarre } = useParams();
     const fetch = useAuthenticatedFetch();
+    const app = useContext(Context);
+    const { shopID } = useContext(MyTaxFreeContext);
 
     const [isLoadingButton, setIsLoadingButton] = useState(false);
-
     const [activeModale, setActiveModale] = useState(false);
-    const openModal = useCallback(() => {
-        setActiveModale(true);
-    }, []);
+    const [activeDeleteModal, setActiveDeleteModal] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [activeToast, setActiveToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState("");
+
+    const {
+        data: bve,
+        isLoading: isloading_bve,
+        status: BveInfoStatus,
+    } = useAppQuery({
+        url: isShopifyPOS() ? `/api/bve/show/${codebarre}?shopId=${shopID}` : `/api/bve/show/${codebarre}`,
+    });
+
+    const openModal = useCallback(() => setActiveModale(true), []);
     const handleCloseModale = useCallback(() => setActiveModale(false), []);
+    const openDeleteModal = useCallback(() => setActiveDeleteModal(true), []);
+    const handleCloseDeleteModal = useCallback(() => setActiveDeleteModal(false), []);
+    const toggleActiveToast = useCallback(() => setActiveToast((active) => !active), []);
+
+    const handleMenuClick = () => {
+        const redirect = Redirect.create(app);
+        redirect.dispatch(Redirect.Action.APP, `/`);
+    };
+    const handleBVEListClick = () => {
+        const redirect = Redirect.create(app);
+        redirect.dispatch(Redirect.Action.APP, `/bve/list`);
+    };
+
+    const handPdfClick = async () => {
+        setIsLoadingButton(true);
+
+        if (isShopifyPOS()) {
+            const response = await fetch(`/api/bve/generateimg/${codebarre}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+            
+            const data = await response.json();
+            
+            if (data.status_code >= 200 && data.status_code < 300) {
+                let imageUrls = [data.image_url]; // Initialize array with first page
+                const numberOfPages = data.status_code - 200 + 1; // Calculate number of pages
+            
+                // Fetch remaining pages
+                for (let i = 2; i <= numberOfPages; i++) {
+                    const pageResponse = await fetch(`/api/bve/generateimg/${codebarre}-${i}`, {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    });
+            
+                    const pageData = await pageResponse.json();
+            
+                    if (pageData.status_code >= 200 && pageData.status_code < 300) {
+                        imageUrls.push(pageData.image_url); // Add page to array
+                    }
+                }
+            
+                localStorage.setItem("bve_img_urls", JSON.stringify(imageUrls)); // Store array in localStorage
+            
+                const redirect = Redirect.create(app);
+                redirect.dispatch(Redirect.Action.APP, '/bve/view/img');
+            } else {
+                openModal();
+            }
+            
+        }
+        else {
+            const response = await fetch(`/api/bve/generatepdf/${codebarre}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+
+            const data = await response.json();
+
+            if (data.status === "success") {
+                let hexString = data.data;
+                let binaryString = hexToBinary(hexString);
+                let blob = new Blob([binaryString], { type: "application/pdf" });
+                let url = window.URL.createObjectURL(blob);
+
+                let link = document.createElement("a");
+                link.href = url;
+                link.download = `${codebarre}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                openModal();
+            }
+        }
+
+        setIsLoadingButton(false);
+    };
+
+    const handleDelete = async () => {
+        setIsDeleting(true);
+
+        try {
+            const response = await fetch(
+                isShopifyPOS() ? `/api/bve/delete/${codebarre}?shopId=${shopID}` : `/api/bve/delete/${codebarre}`,
+                {
+                    method: "GET",
+                });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.status_code !== 200) {
+                throw new Error(`Server error! status: ${data.status_code}`);
+            }
+
+            // Close the modal
+            handleCloseDeleteModal();
+
+            // Show success message
+            setToastMessage("Le BVE a été supprimé avec succès");
+            toggleActiveToast();
+
+            // Redirect to another page after successful deletion
+            const redirect = Redirect.create(app);
+            redirect.dispatch(Redirect.Action.APP, `/bve/list`);
+        } catch (error) {
+            console.error(
+                "There was a problem with the fetch operation: ",
+                error
+            );
+            // If there's an error, stop showing the loading screen
+            setIsDeleting(false);
+
+            // Close the modal
+            handleCloseDeleteModal();
+
+            // Show error message
+            setToastMessage("Une erreur est survenue lors de la suppression du BVE");
+            toggleActiveToast();
+        }
+    };
+
+
     const responseModal = (
         <Modal
             titleHidden
@@ -42,23 +212,32 @@ export default function BVEPage() {
         </Modal>
     );
 
-    const formatDate = (dateString) => {
-        if (dateString) {
-            const year = dateString.slice(0, 4);
-            const month = dateString.slice(4, 6);
-            const day = dateString.slice(6, 8);
-            return `${day}-${month}-${year}`;
-        }
-        return "";
-    };
+    const deleteModal = (
+        <Modal
+            open={activeDeleteModal}
+            onClose={handleCloseDeleteModal}
+            title="Confirmation"
+            primaryAction={{
+                content: 'Oui',
+                onAction: handleDelete,
+                destructive: true,
+            }}
+            secondaryActions={[
+                {
+                    content: 'Non',
+                    onAction: handleCloseDeleteModal,
+                },
+            ]}
 
-    const {
-        data: bve,
-        isLoading: isloading_bve,
-        status: BveInfoStatus,
-    } = useAppQuery({
-        url: `/api/bve/show/${codebarre}`,
-    });
+        >
+            <Modal.Section>
+                <TextContainer>
+                    <p>Etes-vous sûr de vouloir supprimer ce BVE ?</p>
+                </TextContainer>
+            </Modal.Section>
+        </Modal>
+    );
+
 
     if (isloading_bve) {
         return (
@@ -68,122 +247,24 @@ export default function BVEPage() {
         );
     }
 
-    const app = useContext(Context);
+    if (isDeleting) {
+        return (
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100vh',
+            }}>
+                <Spinner size="large" color="#F57C33" accessibilityLabel="Spinner example" />
+                <p>Suppression en cours...</p>
+            </div>
+        );
+    }
 
-    const handleMenuClick = () => {
-        const redirect = Redirect.create(app);
-        redirect.dispatch(Redirect.Action.APP, `/`);
-    };
-    const handleBVEListClick = () => {
-        const redirect = Redirect.create(app);
-        redirect.dispatch(Redirect.Action.APP, `/bve/list`);
-    };
-
-    const hexToBinary = (hexString) => {
-        // Remove all \r and \n in the string
-        hexString = hexString.replace(/[\r\n]+/gm, "");
-        // Strip white space from the string
-        hexString = hexString.replace(/\s+/g, "");
-        // Ensure that the hexString is valid
-        if (
-            hexString.length % 2 !== 0 ||
-            hexString.match(/[0-9A-Fa-f]{1,2}/g).length !== hexString.length / 2
-        ) {
-            throw new Error(`${hexString} is not a valid hex string.`);
-        }
-
-        const binary = new Uint8Array(hexString.length / 2);
-        for (let i = 0; i < hexString.length; i += 2) {
-            binary[i / 2] = parseInt(hexString.substr(i, 2), 16);
-        }
-        return binary;
-    };
-
-    const handPdfClick = async () => {
-        setIsLoadingButton(true);
-
-        const response = await fetch(`/api/bve/generatepdf/${codebarre}`, {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-            },
-        });
-
-        const data = await response.json();
-
-        if (data.status === "success") {
-            let hexString = data.data;
-            let binaryString = hexToBinary(hexString);
-            let blob = new Blob([binaryString], { type: "application/pdf" });
-            let url = window.URL.createObjectURL(blob);
-
-            let link = document.createElement("a");
-            link.href = url;
-            link.download = `${codebarre}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } else {
-            openModal();
-        }
-
-        setIsLoadingButton(false);
-    };
-
-    const [activeDeleteModal, setActiveDeleteModal] = useState(false);
-    const openDeleteModal = useCallback(() => {
-        setActiveDeleteModal(true);
-    }, []);
-    const handleCloseDeleteModal = useCallback(
-        () => setActiveDeleteModal(false),
-        []
-    );
-
-    const deleteModal = (
-        <Modal
-            title="Confirmation"
-            open={activeDeleteModal}
-            onClose={handleCloseDeleteModal}
-            instant
-        >
-            <Modal.Section>
-                <p>Etes-vous sûr de vouloir supprimer ce BVE ?</p>
-                <Button onClick={handleDelete}>Oui</Button>
-                <Button onClick={handleCloseDeleteModal}>Non</Button>
-            </Modal.Section>
-        </Modal>
-    );
-
-    const handleDelete = async () => {
-        try {
-            const response = await fetch(`/api/bve/${codebarre}`, {
-                method: "DELETE",
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (data.status_code !== 200) {
-                throw new Error(`Server error! status: ${data.status_code}`);
-            }
-
-            // Show success message
-            // Close the modal
-            handleCloseDeleteModal();
-        } catch (error) {
-            console.error(
-                "There was a problem with the fetch operation: ",
-                error
-            );
-            // Show error message
-        }
-    };
 
     return (
-        <>
+        <Frame>
             <TitleBar
                 title={`Détail du détaxe N° ${codebarre}`}
                 primaryAction={{
@@ -201,7 +282,7 @@ export default function BVEPage() {
                 <div
                     style={{
                         display: "flex",
-                        justifyContent: "flex-end",
+                        justifyContent: "space-between",
                         padding: "20px 0px 20px 0px",
                     }}
                 >
@@ -211,9 +292,9 @@ export default function BVEPage() {
                         primary={true}
                         loading={isLoadingButton}
                     >
-                        Télécharger le PDF de la détaxe
+                        {isShopifyPOS() ? "Aperçu du PDF de la détaxe" : "Télécharger le PDF de la détaxe"}
                     </Button>
-                    {(bve.Douanes == 0 || bve.Douanes == "0") && (
+                    {(bve.Douanes == 0) && (
                         <Button
                             icon={DeleteMajor}
                             onClick={openDeleteModal}
@@ -294,6 +375,7 @@ export default function BVEPage() {
                     </Card.Section>
                 </Card>
             </div>
-        </>
+            {activeToast && <Toast content={toastMessage} onDismiss={toggleActiveToast} />}
+        </Frame>
     );
 }

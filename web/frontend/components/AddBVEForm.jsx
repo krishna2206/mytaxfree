@@ -1,3 +1,4 @@
+import { useEffect, useState, useCallback, useContext } from "react";
 import {
     TextContainer,
     Modal,
@@ -15,21 +16,31 @@ import {
 } from "@shopify/polaris";
 import { SendMajor, PrintMajor } from "@shopify/polaris-icons";
 
-import { useAppQuery, useAuthenticatedFetch } from "../hooks";
-import { useEffect, useState, useCallback, useContext } from "react";
-// import { useRouter } from 'next/router';
-
-// import DatePickerSelect from "./custom/DatePickerSelect";
-import DatePickerInput from "./custom/DatePickerInput";
-import { Redirect } from "@shopify/app-bridge/actions";
 import { Context } from "@shopify/app-bridge-react";
+import { Redirect } from "@shopify/app-bridge/actions";
+import { isShopifyPOS } from "@shopify/app-bridge/utilities";
+import { useAppQuery, useAuthenticatedFetch } from "../hooks";
 
-// a function that from this date string DD-MM-YYYY, remove the dashes and return YYYYMMDD
+import { MyTaxFreeContext } from "./providers/MyTaxFreeProvider";
+import DatePickerInput from "./custom/DatePickerInput";
+
+// A function that from this date string DD-MM-YYYY, remove the dashes and return YYYYMMDD
 function formatDateFromDashes(date) {
     let year = date.split("-")[2];
     let month = date.split("-")[1];
     let day = date.split("-")[0];
     let formattedDate = `${year}${month}${day}`;
+
+    if (formattedDate.includes("undefined")) return "";
+    return formattedDate;
+}
+
+// A function that does the inverse of the formatDateFromDashes() function
+function formatDateToDashes(date) {
+    let year = date.substring(0, 4);
+    let month = date.substring(4, 6);
+    let day = date.substring(6, 8);
+    let formattedDate = `${day}-${month}-${year}`;
 
     if (formattedDate.includes("undefined")) return "";
     return formattedDate;
@@ -81,8 +92,9 @@ function mustBeFutureDate(day, month, year) {
 export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     const fetch = useAuthenticatedFetch();
     const app = useContext(Context);
+    const { shopID } = useContext(MyTaxFreeContext);
 
-    // const [isLoadingPDFButton, setIsLoadingPDFButton] = useState(false);
+    const [isLoadingPDFButton, setIsLoadingPDFButton] = useState(false);
 
     // Remplissage du select de la liste des pays
     const { data: countries, status: countriesStatus } = useAppQuery({
@@ -94,17 +106,13 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
 
     const [selectedCountry, setSelectedCountry] = useState("");
     const handleCountryChange = (value) => {
-        if (!passport) {
-            setSelectedCountry(value);
-            setFormState({ ...formState, IDPays: value });
-        }
+        setSelectedCountry(value);
+        setFormState({ ...formState, IDPays: value });
     };
     const [selectedNationality, setSelectedNationality] = useState("");
     const handleNationalityChange = (value) => {
-        if (!passport) {
-            setSelectedNationality(value);
-            setFormState({ ...formState, Nationalite: value });
-        }
+        setSelectedNationality(value);
+        setFormState({ ...formState, Nationalite: value });
     };
 
     if (countriesStatus === "success") {
@@ -123,6 +131,13 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             }
         });
     }
+
+    useEffect(() => {
+        if (passport) {
+            setSelectedCountry(passport.Pays.toString());
+            setSelectedNationality(passport.Nationalite.toString());
+        }
+    }, [passport]);
 
     // Remplissage du select de la liste des modes de remboursement
     const { data: refundModes, status: refundModesStatus } = useAppQuery({
@@ -153,8 +168,9 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
         `${dd}-${mm}-${yyyy}`
     );
     const [selectedDateValiditePasseport, setSelectedDateValiditePasseport] =
-        useState("");
-    const [selectedDateNaissance, setSelectedDateNaissance] = useState("");
+        useState(passport ? formatDateToDashes(passport.ValiditePasseport) : "");
+    const [selectedDateNaissance, setSelectedDateNaissance] = 
+        useState(passport ? formatDateToDashes(passport.DateNaissance) : "");
     const [selectedDateDepart, setSelectedDateDepart] = useState("");
 
     const [dateAchatErrorMessage, setDateAchatErrorMessage] = useState("");
@@ -217,12 +233,12 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                     : ""
                 : ""
             : "",
-        IDPays: passport ? passport.Pays : selectedCountry,
+        IDPays: passport ? passport.Pays.toString() : selectedCountry,
         Passeport: passport ? passport.Passeport : "",
         PassportValid: passport
             ? passport.ValiditePasseport
             : formatDateFromDashes(selectedDateValiditePasseport),
-        Nationalite: passport ? passport.Nationalite : selectedNationality,
+        Nationalite: passport ? passport.Nationalite.toString() : selectedNationality,
         DateN: passport
             ? passport.DateNaissance
             : formatDateFromDashes(selectedDateNaissance),
@@ -293,10 +309,8 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             : ""
     );
     const handleNomChange = (value) => {
-        if (!passport) {
-            setNom(value);
-            setFormState({ ...formState, Nom: value });
-        }
+        setNom(value);
+        setFormState({ ...formState, Nom: value });
     };
 
     const [Prenom, setPrenom] = useState(
@@ -309,10 +323,8 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             : ""
     );
     const handlePrenomChange = (value) => {
-        if (!passport) {
-            setPrenom(value);
-            setFormState({ ...formState, Prenom: value });
-        }
+        setPrenom(value);
+        setFormState({ ...formState, Prenom: value });
     };
 
     const [Addresse, setAddresse] = useState(
@@ -329,20 +341,16 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
             : ""
     );
     const handleAddresseChange = (value) => {
-        if (!passport) {
-            setAddresse(value);
-            setFormState({ ...formState, Addresse: value });
-        }
+        setAddresse(value);
+        setFormState({ ...formState, Addresse: value });
     };
 
     const [Passeport, setPasseport] = useState(
         passport ? passport.Passeport : ""
     );
     const handlePasseportChange = (value) => {
-        if (!passport) {
-            setPasseport(value);
-            setFormState({ ...formState, Passeport: value });
-        }
+        setPasseport(value);
+        setFormState({ ...formState, Passeport: value });
     };
 
     const [Messagerie, setMessagerie] = useState("");
@@ -398,7 +406,9 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     const submitForm = async () => {
         setIsButtonLoading(true);
 
-        const response = await fetch("/api/barcode", {
+        const barcodeAPIUrl = isShopifyPOS() ? `/api/barcode?shopId=${shopID}` : "/api/barcode";
+
+        const response = await fetch(barcodeAPIUrl, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -440,6 +450,7 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                             secondResponseData
                     );
                     setIsSuccessModalOpen(true);
+
                 }
             } else {
                 if (secondResponseData) {
@@ -542,35 +553,71 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
     };
 
     const handPdfClick = async () => {
-        // setIsLoadingPDFButton(true);
+        setIsLoadingPDFButton(true);
 
-        const response = await fetch(`/api/bve/generatepdf/${codeBarre}`, {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-            },
-        });
+        if (isShopifyPOS()) {
+            const response = await fetch(`/api/bve/generateimg/${codeBarre}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+            
+            const data = await response.json();
+            
+            if (data.status_code >= 200 && data.status_code < 300) {
+                let imageUrls = [data.image_url]; // Initialize array with first page
+                const numberOfPages = data.status_code - 200 + 1; // Calculate number of pages
+            
+                // Fetch remaining pages
+                for (let i = 2; i <= numberOfPages; i++) {
+                    const pageResponse = await fetch(`/api/bve/generateimg/${codeBarre}-${i}`, {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    });
+            
+                    const pageData = await pageResponse.json();
+            
+                    if (pageData.status_code >= 200 && pageData.status_code < 300) {
+                        imageUrls.push(pageData.image_url); // Add page to array
+                    }
+                }
+            
+                localStorage.setItem("bve_img_urls", JSON.stringify(imageUrls)); // Store array in localStorage
+            
+                const redirect = Redirect.create(app);
+                redirect.dispatch(Redirect.Action.APP, '/bve/view/img');
+            }
+            
+        }
+        else {
+            const response = await fetch(`/api/bve/generatepdf/${codeBarre}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (data.status === "success") {
-            let hexString = data.data;
-            let binaryString = hexToBinary(hexString);
-            let blob = new Blob([binaryString], { type: "application/pdf" });
-            let url = window.URL.createObjectURL(blob);
+            if (data.status === "success") {
+                let hexString = data.data;
+                let binaryString = hexToBinary(hexString);
+                let blob = new Blob([binaryString], { type: "application/pdf" });
+                let url = window.URL.createObjectURL(blob);
 
-            let link = document.createElement("a");
-            link.href = url;
-            link.download = `${codeBarre}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            const redirect = Redirect.create(app);
-            redirect.dispatch(Redirect.Action.APP, `/`);
+                let link = document.createElement("a");
+                link.href = url;
+                link.download = `${codeBarre}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
         }
 
-        // setIsLoadingPDFButton(false);
+        setIsLoadingPDFButton(false);
     };
 
     return (
@@ -847,10 +894,11 @@ export default function AddBVEForm({ selectedOrder, orderDetail, passport }) {
                 }}
                 title="Ajout BVE réussi"
                 primaryAction={{
-                    // loading: {isLoadingPDFButton},
+                    // loading: {isLoadingPDFButton}, <= Doesnt work, idk why
+                    loading: isLoadingPDFButton ? true : false,
                     icon: PrintMajor,
-                    content: "Télécharger le PDF de la détaxe",
-                    onAction: () => handPdfClick(),
+                    content: isShopifyPOS() ? "Aperçu du PDF de la détaxe" : "Télécharger le PDF de la détaxe",
+                    onAction: handPdfClick,
                 }}
             >
                 <Modal.Section>

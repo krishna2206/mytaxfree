@@ -7,7 +7,7 @@ use App\Lib\EnsureBilling;
 use App\Lib\ProductCreator;
 use App\Lib\SFTPClient;
 use App\Lib\Utils as AppUtils;
-use App\Models\Session;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
@@ -113,12 +113,22 @@ Route::post('/api/webhooks', function (Request $request) {
 
 
 // Custom added
+Route::get('/api/locations', function (Request $request) {
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    $client = new Rest($session->getShop(), $session->getAccessToken());
+    $result = $client->get('locations');
+
+    return response($result->getDecodedBody());
+})->middleware('shopify.auth');
+
 Route::get('/api/orders', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
     $client = new Rest($session->getShop(), $session->getAccessToken());
-    $result = $client->get('orders');
+    $result = $client->get('orders', query: ["status" => "any"]);
 
     return response($result->getDecodedBody());
 })->middleware('shopify.auth');
@@ -133,12 +143,64 @@ Route::get('/api/orders/{id}', function (Request $request, $id) {
     return response($result->getDecodedBody());
 })->middleware('shopify.auth');
 
+Route::get('/api/pos-orders', function (Request $request) {
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    $zip_code = $request->input('zipCode');
+
+    $client = new Rest($session->getShop(), $session->getAccessToken());
+    $orders = $client->get('orders', query: ['status' => 'any'])->getDecodedBody()["orders"];
+
+    $posOrders = array_filter($orders, function ($order) {
+        return strpos($order["client_details"]["user_agent"], "Shopify POS") !== false;
+    });
+
+    // Si le code postale est donné, filtrer les commandes par code postale
+    if ($zip_code) {
+        $locations = $client->get('locations')->getDecodedBody()["locations"];
+        $filteredLocations = array_filter($locations, function($location) {
+            return $location["active"] && !$location["legacy"] && $location["zip"] !== null;
+        });
+    
+        $location_id = null;
+        foreach ($filteredLocations as $location) {
+            $zip = str_replace(' ', '', $location["zip"]);
+            if ($zip == $zip_code) {
+                $location_id = $location["id"];
+            }
+        }
+    
+        // Filter posOrders based on location_id
+        $posOrders = array_filter($posOrders, function ($order) use ($location_id) {
+            return $order["location_id"] == $location_id;
+        });
+    }
+
+    return response(["orders" => array_values($posOrders)]);
+})->middleware('shopify.auth');
+
+
 // App specific routes
 Route::get('/api/countries', function () {
     $url = "https://www.mytaxfree.fr/API/_STPays/2023";
     $response = DetaxeApiClient::retrieve_data($url);
     return $response["response_data"];
 });
+
+Route::get('/api/verify-shop', function (Request $request) {
+    /** @var AuthSession */
+    $session = $request->get('shopifySession');
+
+    $shop_id = $request->input('shopId');
+    if (!$shop_id) {
+        $shop_id = getShopID($session);
+    }
+
+    $url = "https://www.mytaxfree.fr/API/_STMag/" . $shop_id;
+    $response = DetaxeApiClient::retrieve_data($url);
+    return $response["response_data"];
+})->middleware('shopify.auth');
 
 Route::get('/api/refund-modes', function (Request $request) {
     /** @var AuthSession */
@@ -152,31 +214,66 @@ Route::get('/api/refund-modes', function (Request $request) {
 })->middleware('shopify.auth');
 
 Route::get('/api/bve/show', function (Request $request) {
-    // $barcode = $request->input("barcode");
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = getShopID($session);
+    $BVEList = [];
+    $shop_id = $request->input('shopId');
 
-    $bves = DetaxeApiClient::get_bve_list($shop_id)["response_data"]["BVE"] ?? [];
-    return Response()->json($bves);
+    // Si le paramètre a été donné, obtenir les bves de cette shop id uniquement
+    if ($shop_id) {
+        $BVEList = DetaxeApiClient::get_bve_list($shop_id)["response_data"]["BVE"] ?? [];
+    }
+
+    // Sinon, obtenir le code parent ainsi que ces fils et obtenir leurs bves
+    else {
+        $shop_id = getShopID($session);
+
+        $BVEList = DetaxeApiClient::get_bve_list($shop_id)["response_data"]["BVE"] ?? [];
+
+        $client = new Rest($session->getShop(), $session->getAccessToken());
+
+        $result = $client->get('locations');
+        $locations = $result->getDecodedBody()["locations"];
+
+        $filteredLocations = array_filter($locations, function($location) {
+            return $location["active"] && !$location["legacy"] && $location["zip"] !== null;
+        });
+        
+        foreach ($filteredLocations as $location) {
+            $zip = str_replace(' ', '', $location["zip"]);
+            $finalShopId = $shop_id . $zip;
+
+            $POSBveList = DetaxeApiClient::get_bve_list($finalShopId)["response_data"]["BVE"] ?? [];
+
+            $BVEList = array_merge($BVEList, $POSBveList);
+        }
+    }
+
+    return Response()->json($BVEList);
 })->middleware('shopify.auth');
 
 Route::get('/api/bve/show/{codebarre}', function (Request $request, $codebarre) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = getShopID($session);
+    $shop_id = $request->input('shopId');
+    if (!$shop_id) {
+        $shop_id = getShopID($session);
+    }
 
     $bve_data = DetaxeApiClient::get_bve($codebarre, $shop_id)['response_data'];
     return Response()->json($bve_data);
 })->middleware('shopify.auth');
 
-Route::delete('/api/bve/{codebarre}', function (Request $request, $codebarre) {
+Route::get('/api/bve/delete/{codebarre}', function (Request $request, $codebarre) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = getShopID($session);
+    $shop_id = $request->input('shopId');
+    if (!$shop_id) {
+        $shop_id = getShopID($session);
+    }
 
     $bve_data = DetaxeApiClient::delete_bve($codebarre, $shop_id);
     return Response()->json($bve_data);
@@ -203,11 +300,71 @@ Route::get('/api/bve/generatepdf/{codebarre}', function ($codebarre) {
     }
 });
 
+Route::get('/api/bve/generateimg/{codebarre}', function ($codebarre) {
+    $response = DetaxeApiClient::generate_bve_img($codebarre);
+
+    $status_code = $response["status_code"];
+
+    if ($status_code >= 200 && $status_code < 300) {
+        $hexString = $response["response_data"];
+
+        // Remove all \r and \n in the string
+        $hexString = str_replace(["\r", "\n"], '', $hexString);
+        // Strip white space from the string
+        $hexString = str_replace(' ', '', $hexString);
+        // Ensure that the hexString is valid
+        if (
+            strlen($hexString) % 2 !== 0 ||
+            count(preg_split('/[0-9A-Fa-f]{1,2}/', $hexString)) - 1 !== strlen($hexString) / 2
+        ) {
+            throw new \Exception("$hexString is not a valid hex string.");
+        }
+
+        $binaryData = '';
+        for ($i = 0; $i < strlen($hexString); $i += 2) {
+            $binaryData .= chr(hexdec(substr($hexString, $i, 2)));
+        }
+
+        // Create an image from the binary data
+        $image = Image::make($binaryData);
+
+        // Define the path where the image will be saved
+        $fileName = "$codebarre.png";
+        $filePath = public_path("images/$fileName");
+
+        // Check if the file already exists
+        if(!file_exists($filePath)) {
+            // Create an image from the binary data
+            $image = Image::make($binaryData);
+            // Save the image to the server
+            $image->save($filePath);
+        }
+
+        // Generate the URL for the image
+        $imageUrl = asset("images/$fileName");
+
+        $img_data = [
+            "status_code" => $status_code,
+            "data" => $hexString,
+            "image_url" => $imageUrl
+        ];
+
+        return Response()->json($img_data);
+    } else {
+        return Response()->json([
+            "status_code" => $status_code,
+        ]);
+    }
+});
+
 Route::post('/api/barcode', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = getShopID($session);
+    $shop_id = request()->input('shopId');
+    if (!$shop_id) {
+        $shop_id = getShopID($session);
+    }
 
     $data = $request->json()->all();
 
@@ -233,7 +390,10 @@ Route::post('/api/passport/scan', function (Request $request) {
     /** @var AuthSession */
     $session = $request->get('shopifySession');
 
-    $shop_id = getShopID($session);
+    $shop_id = $request->input('shopId');
+    if (!$shop_id) {
+        $shop_id = getShopID($session);
+    }
 
     if (!$request->hasFile('file')) {
         return response()->json(['upload_file_not_found'], 400);
@@ -244,39 +404,12 @@ Route::post('/api/passport/scan', function (Request $request) {
         return response()->json(['invalid_file_upload'], 400);
     }
 
-    /* ! OLD
-
-        $file = $request->file('file');
-        if (!$file->isValid()) {
-            return response()->json(['invalid_file_upload'], 400);
-        }
-
-        $date = date('YmdHisv');
-        $extension = '.' . $file->getClientOriginalExtension();
-        $filename = $shop_id . '-' . $date . $extension;
-
-        $path = public_path() . '/uploads/passports/';
-        $file->move($path, $filename);
-
-    */
-
-    // Create an instance of the image from the uploaded file
-    $image = Image::make($file->path());
-
-    // Correct the orientation
-    $image->orientate();
-
-    // Resize and compress the image
-    $image->resize(800, null, function ($constraint) {
-        $constraint->aspectRatio();
-    })->encode('jpg', 100);
-
     $date = date('YmdHisv');
-    $extension = '.jpg'; // We are saving the file as a .jpg after compression
+    $extension = ".jpg";
     $filename = $shop_id . '-' . $date . $extension;
 
     $path = public_path() . '/uploads/passports/';
-    $image->save($path . $filename);
+    $file->move($path, $filename);
 
     $localFile = $path . $filename;
     $remoteFile = '/' . $filename;
@@ -288,18 +421,8 @@ Route::post('/api/passport/scan', function (Request $request) {
 
     $response = DetaxeApiClient::scan_passport($fileNameWithoutExt, $shop_id);
 
-    // Check if there's an error
-    if (array_key_exists('error', $response)) {
-        // Clear passport data from the session
-        Session::put('passport', null);
-    } else {
-        // Save passport data in the session
-        Session::put('passport', $response);
-    }
-
     return response()->json($response);
 })->middleware('shopify.auth');
-
 
 Route::get('/api/shop', function (Request $request) {
     /** @var AuthSession */
@@ -318,13 +441,3 @@ function getShopID($session) {
     $shop_id = $result->getDecodedBody()["shop"]["id"];
     return "SH$shop_id";
 }
-
-
-// Route::get("/api/uid", function (Request $request) {
-//     /** @var AuthSession */
-//     $session = $request->get('shopifySession');
-
-//     return response()->json([
-//         "uid" => $session->getShop() . "." . AppUtils::v3_UUID("5f6384bfec4ca0b2d4114a13aa2a5435", $session->getAccessToken()),
-//     ]);
-// })->middleware("shopify.auth");

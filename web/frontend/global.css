@@ -1,3 +1,20 @@
 .Polaris-Button--primary {
     background-color: #F57C33 !important;
 }
+
+.react-pdf__Page__textContent {
+    display: none !important;
+}
+
+.spacingBackground {
+    margin: 0 10%;
+    /* mobile first design, 10% margin for mobile screens */
+}
+
+@media screen and (min-width: 768px) {
+
+    /* changing the margin when the screen width is 768px or larger (tablet and desktop screens) */
+    .spacingBackground {
+        margin: 0 25%;
+    }
+}

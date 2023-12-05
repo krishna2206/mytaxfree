@@ -1,8 +1,10 @@
-import { Context, TitleBar } from "@shopify/app-bridge-react";
+import React, { useContext } from "react";
+
 import { Redirect } from "@shopify/app-bridge/actions";
+import { Context, TitleBar } from "@shopify/app-bridge-react";
 import { Button, VerticalStack } from "@shopify/polaris";
 import { IdentityCardMajor, FormsMajor } from "@shopify/polaris-icons";
-import React, { useContext } from "react";
+
 import SpacingBackground from "../../../components/SpacingBackground";
 
 export default function BveCreationMenu() {

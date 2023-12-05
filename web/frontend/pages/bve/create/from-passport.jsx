@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useContext } from "react";
+
 import {
     VerticalStack,
     Text,
@@ -7,34 +8,20 @@ import {
     Banner,
 } from "@shopify/polaris";
 import { ListMajor } from "@shopify/polaris-icons";
+import { Redirect } from "@shopify/app-bridge/actions";
+import { Context, TitleBar } from "@shopify/app-bridge-react";
+import { isShopifyPOS } from "@shopify/app-bridge/utilities";
+import { useAppQuery, useAuthenticatedFetch } from "../../../hooks";
 
 import AddBVEForm from "../../../components/AddBVEForm";
-
-import { useAppQuery, useAuthenticatedFetch } from "../../../hooks";
-import { Context, TitleBar } from "@shopify/app-bridge-react";
-import { Redirect } from "@shopify/app-bridge/actions";
+import { MyTaxFreeContext } from "../../../components/providers/MyTaxFreeProvider";
 
 export default function CreateBveFromPassport() {
     const fetch = useAuthenticatedFetch();
+    const { zipCode } = useContext(MyTaxFreeContext);
 
-    // Initialize the passport state
-    const [passport, setPassport] = useState(null);
-
-    // Fetch the passport data when the component mounts
-    useEffect(() => {
-        fetch("/api/passport/get", {
-            method: "GET",
-            credentials: "include", // Include credentials (session ID) in the request
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                // Update the passport state with the returned data
-                setPassport(data);
-            })
-            .catch((error) => {
-                // Handle the error
-            });
-    }, [fetch]); // Dependency array
+    //? Load the passport data from the localstorage
+    const passport = JSON.parse(localStorage.getItem("passport"));
 
     const [selectedOrder, setSelectedOrder] = useState(null);
     const handleOrderChange = useCallback((value) => {
@@ -44,6 +31,8 @@ export default function CreateBveFromPassport() {
         console.log(selectedOrder);
     }, []);
 
+    const ordersAPIUrl = isShopifyPOS() ? `/api/pos-orders?zipCode=${zipCode}` : "/api/orders";
+
     const {
         data: orders,
         status: ordersStatus,
@@ -51,7 +40,7 @@ export default function CreateBveFromPassport() {
         isError: isErrorOrders,
         isSuccess: isSuccessOrders,
     } = useAppQuery({
-        url: "/api/orders",
+        url: ordersAPIUrl,
     });
     let ordersOptions = [];
     if (ordersStatus === "success" && orders.orders) {
@@ -64,8 +53,15 @@ export default function CreateBveFromPassport() {
                 "0" + date.getHours()
             ).slice(-2)}:${("0" + date.getMinutes()).slice(-2)}`;
 
+            let orderLabel = "";
+            if (isShopifyPOS()) {
+                orderLabel = `Commande N°${order.id} du ${formattedDate} (Point De Vente)`;
+            } else {
+                orderLabel = `Commande N°${order.id} du ${formattedDate}`;
+            }
+
             return {
-                label: `Commande N°${order.id} du ${formattedDate}`,
+                label: orderLabel,
                 value: `${order.id}`,
             };
         });
@@ -89,54 +85,57 @@ export default function CreateBveFromPassport() {
         const redirect = Redirect.create(app);
         redirect.dispatch(Redirect.Action.APP, `/`);
     };
-    const handleBVEListClick = () => {
-        const redirect = Redirect.create(app);
-        redirect.dispatch(Redirect.Action.APP, `/bve/list`);
-    };
 
     if (isLoadingOrders) return <SkeletonBodyText lines={5} />;
 
     if (isErrorOrders)
         return (
-            <div style={{ padding: "20px" }}>
-                <Banner status="critical">
-                    Une erreur est survenue lors de la récupération des
-                    commandes
-                </Banner>
-            </div>
+            <>
+                <div style={{ padding: "20px" }}>
+                    <Banner status="critical">
+                        Une erreur est survenue lors de la récupération des
+                        commandes
+                    </Banner>
+                </div>
+            </>
         );
 
     if (isSuccessOrders && !orders.orders && orders.errors)
         return (
-            <div style={{ padding: "20px" }}>
-                <Banner status="critical">
-                    Une erreur est survenue lors de la récupération des
-                    commandes :<br></br>
-                    {orders.errors}
-                </Banner>
-            </div>
+            <>
+                <div style={{ padding: "20px" }}>
+                    <Banner status="critical">
+                        Une erreur est survenue lors de la récupération des
+                        commandes :<br></br>
+                        {orders.errors}
+                    </Banner>
+                </div>
+            </>
         );
 
     if (isSuccessOrders && !orders.orders && !orders.errors)
-        return <Text>Aucune commande disponible</Text>;
+        return (
+            <>
+                <div style={{ padding: "20px" }}>
+                    <Banner status="critical">
+                        Aucune commande disponible
+                    </Banner>
+                </div>
+            </>
+        );
 
     if (isSuccessOrders && orders.orders && !orders.errors)
         return (
             <>
                 <TitleBar
                     title="Création d'une détaxe"
-                    primaryAction={{
-                        icon: ListMajor,
-                        content: "Liste des BVE",
-                        onAction: () => handleBVEListClick(),
-                    }}
-                    secondaryActions={[
+                    primaryAction={
                         {
                             icon: ListMajor,
                             content: "Menu",
                             onAction: () => handleMenuClick(),
-                        },
-                    ]}
+                        }
+                    }
                 />
                 <div style={{ padding: "20px" }}>
                     <VerticalStack gap="4">

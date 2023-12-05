@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useContext } from "react";
+
 import {
     VerticalStack,
     Text,
@@ -7,17 +8,19 @@ import {
     Banner,
 } from "@shopify/polaris";
 import { ListMajor } from "@shopify/polaris-icons";
+import { Redirect } from "@shopify/app-bridge/actions";
+import { Context, TitleBar } from "@shopify/app-bridge-react";
+import { isShopifyPOS } from "@shopify/app-bridge/utilities";
+import { useAppQuery, useAuthenticatedFetch } from "../../../hooks";
 
 import AddBVEForm from "../../../components/AddBVEForm";
-
-import { useAppQuery, useAuthenticatedFetch } from "../../../hooks";
-import { Context, TitleBar } from "@shopify/app-bridge-react";
-import { Redirect } from "@shopify/app-bridge/actions";
+import { MyTaxFreeContext } from "../../../components/providers/MyTaxFreeProvider";
 
 export default function CreateBveFromOrders() {
     const fetch = useAuthenticatedFetch();
+    const { zipCode } = useContext(MyTaxFreeContext);
 
-    const [passport, setPassport] = useState(null);
+    const passport = null;
 
     const [selectedOrder, setSelectedOrder] = useState(null);
     const handleOrderChange = useCallback((value) => {
@@ -27,6 +30,8 @@ export default function CreateBveFromOrders() {
         console.log(selectedOrder);
     }, []);
 
+    const ordersAPIUrl = isShopifyPOS() ? `/api/pos-orders?zipCode=${zipCode}` : "/api/orders";
+
     const {
         data: orders,
         status: ordersStatus,
@@ -34,7 +39,7 @@ export default function CreateBveFromOrders() {
         isError: isErrorOrders,
         isSuccess: isSuccessOrders,
     } = useAppQuery({
-        url: "/api/orders",
+        url: ordersAPIUrl,
     });
     let ordersOptions = [];
     if (ordersStatus === "success" && orders.orders) {
@@ -47,8 +52,15 @@ export default function CreateBveFromOrders() {
                 "0" + date.getHours()
             ).slice(-2)}:${("0" + date.getMinutes()).slice(-2)}`;
 
+            let orderLabel = "";
+            if (isShopifyPOS()) {
+                orderLabel = `Commande N°${order.id} du ${formattedDate} (Point De Vente)`;
+            } else {
+                orderLabel = `Commande N°${order.id} du ${formattedDate}`;
+            }
+
             return {
-                label: `Commande N°${order.id} du ${formattedDate}`,
+                label: orderLabel,
                 value: `${order.id}`,
             };
         });
@@ -72,54 +84,57 @@ export default function CreateBveFromOrders() {
         const redirect = Redirect.create(app);
         redirect.dispatch(Redirect.Action.APP, `/`);
     };
-    const handleBVEListClick = () => {
-        const redirect = Redirect.create(app);
-        redirect.dispatch(Redirect.Action.APP, `/bve/list`);
-    };
 
     if (isLoadingOrders) return <SkeletonBodyText lines={5} />;
 
     if (isErrorOrders)
         return (
-            <div style={{ padding: "20px" }}>
-                <Banner status="critical">
-                    Une erreur est survenue lors de la récupération des
-                    commandes
-                </Banner>
-            </div>
+            <>
+                <div style={{ padding: "20px" }}>
+                    <Banner status="critical">
+                        Une erreur est survenue lors de la récupération des
+                        commandes
+                    </Banner>
+                </div>
+            </>
         );
 
     if (isSuccessOrders && !orders.orders && orders.errors)
         return (
-            <div style={{ padding: "20px" }}>
-                <Banner status="critical">
-                    Une erreur est survenue lors de la récupération des
-                    commandes :<br></br>
-                    {orders.errors}
-                </Banner>
-            </div>
+            <>
+                <div style={{ padding: "20px" }}>
+                    <Banner status="critical">
+                        Une erreur est survenue lors de la récupération des
+                        commandes :<br></br>
+                        {orders.errors}
+                    </Banner>
+                </div>
+            </>
         );
 
     if (isSuccessOrders && !orders.orders && !orders.errors)
-        return <Text>Aucune commande disponible</Text>;
+        return (
+            <>
+                <div style={{ padding: "20px" }}>
+                    <Banner status="critical">
+                        Aucune commande disponible
+                    </Banner>
+                </div>
+            </>
+        );
 
     if (isSuccessOrders && orders.orders && !orders.errors)
         return (
             <>
                 <TitleBar
                     title="Création d'une détaxe"
-                    primaryAction={{
-                        icon: ListMajor,
-                        content: "Liste des BVE",
-                        onAction: () => handleBVEListClick(),
-                    }}
-                    secondaryActions={[
+                    primaryAction={
                         {
                             icon: ListMajor,
                             content: "Menu",
                             onAction: () => handleMenuClick(),
-                        },
-                    ]}
+                        }
+                    }
                 />
                 <div style={{ padding: "20px" }}>
                     <VerticalStack gap="4">
