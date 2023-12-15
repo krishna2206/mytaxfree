@@ -104,11 +104,11 @@ export default function ScanPassport() {
             };
 
             if (files[0].size <= 1024 * 1024) {
-                processUpload(fetch, files[0], setModalContent, setIsModalOpen, setIsLoading);
+                processUpload(files[0]);
             } else {
                 readAndCompressImage(files[0], config)
                     .then(compressedFile => {
-                        processUpload(fetch, compressedFile, setModalContent, setIsModalOpen, setIsLoading);
+                        processUpload(compressedFile);
                     })
                     .catch(err => {
                         console.log(err);

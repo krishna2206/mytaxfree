@@ -53,7 +53,7 @@ export default function CreateBveFromOrders() {
             ).slice(-2)}:${("0" + date.getMinutes()).slice(-2)}`;
 
             let orderLabel = "";
-            if (isShopifyPOS()) {
+            if (order.client_details.user_agent.includes("Shopify POS")) {
                 orderLabel = `Commande N°${order.id} du ${formattedDate} (Point De Vente)`;
             } else {
                 orderLabel = `Commande N°${order.id} du ${formattedDate}`;
@@ -65,6 +65,12 @@ export default function CreateBveFromOrders() {
             };
         });
     }
+
+    useEffect(() => {
+        if (isSuccessOrders && orders.orders && orders.orders.length > 0) {
+            setSelectedOrder(orders.orders[0].id.toString());
+        }
+    }, [isSuccessOrders, orders]);
 
     const [orderDetail, setOrderDetail] = useState(null);
     useEffect(() => {
