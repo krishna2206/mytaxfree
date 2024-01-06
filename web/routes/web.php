@@ -128,7 +128,7 @@ Route::get('/api/orders', function (Request $request) {
     $session = $request->get('shopifySession');
 
     $client = new Rest($session->getShop(), $session->getAccessToken());
-    $result = $client->get('orders', query: ["status" => "any"]);
+    $result = $client->get('orders', query: ["status" => "any", "financial_status" => "paid"]);
 
     return response($result->getDecodedBody());
 })->middleware('shopify.auth');
@@ -150,7 +150,7 @@ Route::get('/api/pos-orders', function (Request $request) {
     $zip_code = $request->input('zipCode');
 
     $client = new Rest($session->getShop(), $session->getAccessToken());
-    $orders = $client->get('orders', query: ['status' => 'any'])->getDecodedBody()["orders"];
+    $orders = $client->get('orders', query: ['status' => 'any', "financial_status" => "paid"])->getDecodedBody()["orders"];
 
     $posOrders = array_filter($orders, function ($order) {
         return strpos($order["client_details"]["user_agent"], "Shopify POS") !== false;

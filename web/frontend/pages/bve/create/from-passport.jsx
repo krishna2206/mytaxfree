@@ -55,9 +55,9 @@ export default function CreateBveFromPassport() {
 
             let orderLabel = "";
             if (order.client_details.user_agent.includes("Shopify POS")) {
-                orderLabel = `Commande N°${order.id} du ${formattedDate} (Point De Vente)`;
+                orderLabel = `Commande #${order.order_number} du ${formattedDate} (Point De Vente)`;
             } else {
-                orderLabel = `Commande N°${order.id} du ${formattedDate}`;
+                orderLabel = `Commande #${order.order_number} du ${formattedDate}`;
             }
 
             return {
